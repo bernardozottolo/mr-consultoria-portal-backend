@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 1.5cm;
+            @top-center {
+                content: "";
+            }
+        }
+        
+        html, body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+        }
+        
+        .header-logos {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .header-logos img {
+            max-height: 60px;
+            width: auto;
+        }
+        
+        .report-page {
+            page-break-after: always;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .report-title {
+            color: #2f84a8;
+            margin: 40px 0;
+            padding: 0;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        
+        .legalizacoes-page {
+            page-break-before: always;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .legalizacoes-title {
+            color: #2f84a8;
+            margin: 40px 0;
+            padding: 0;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        
+        .regional-page {
+            page-break-before: always;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .regional-title {
+            color: #2f84a8;
+            margin: 40px 0;
+            padding: 0;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        
+        .page-wrapper {
+            width: 100%;
+            text-align: center;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            font-size: 0.9em;
+        }
+        
+        .data-table th {
+            background-color: #B3D9FF;
+            color: #2f84a8;
+            padding: 12px 8px;
+            text-align: center;
+            font-weight: bold;
+            border: 1px solid #2f84a8;
+        }
+        
+        .data-table td {
+            padding: 10px 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        
+        .data-table tr.row-main {
+            background-color: white;
+            font-weight: bold;
+        }
+        
+        .data-table tr.row-sub {
+            background-color: #f9f9f9;
+        }
+        
+        .data-table tr.row-sub td:first-child {
+            padding-left: 30px;
+        }
+        
+        .data-table tr.row-total {
+            background-color: #B3D9FF;
+            font-weight: bold;
+        }
+        
+        .comments-section {
+            page-break-before: always;
+            padding: 40px;
+            background: white;
+        }
+        
+        .comments-title {
+            color: #2f84a8;
+            background-color: #2f84a8;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            margin: 0;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .comments-content {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 20px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .comments-content ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .comments-content li {
+            padding: 10px 0 10px 30px;
+            position: relative;
+            line-height: 1.6;
+        }
+        
+        .comments-content li::before {
+            content: "▶";
+            position: absolute;
+            left: 0;
+            color: #2f84a8;
+            font-size: 0.8em;
+        }
+        
+        .comments-content li strong {
+            color: #2f84a8;
+        }
+        
+        .regional-data {
+            margin-top: 30px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <!-- Primeira página: Relatório Enel -->
+    <div class="report-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="report-title">
+            Relatório Enel de {{ month_name }} {{ year }}
+        </h1>
+    </div>
+    
+    <!-- Segunda página: Legalizações -->
+    <div class="legalizacoes-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="legalizacoes-title">
+            Legalizações - {{ estados }}
+        </h1>
+    </div>
+    
+    <!-- Páginas de Regionais (condicionais) -->
+    {% if 'CE' in estados_lista %}
+    <!-- Terceira página: Regional Ceará -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional Ceará
+        </h1>
+    </div>
+    {% endif %}
+    
+    {% if 'SP' in estados_lista %}
+    <!-- Regional São Paulo -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional São Paulo
+        </h1>
+    </div>
+    {% endif %}
+    
+    {% if 'RJ' in estados_lista %}
+    <!-- Regional Rio de Janeiro -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional Rio de Janeiro
+        </h1>
+    </div>
+    {% endif %}
+    
+    <!-- Seção de Comentários -->
+    {% if comments %}
+    <div class="comments-section">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h2 class="comments-title">Comentários</h2>
+        <div class="comments-content">
+            <ul>
+                {% for comment in comments %}
+                <li>{{ comment|safe }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>
+
