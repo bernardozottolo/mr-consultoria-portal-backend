@@ -14,13 +14,26 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código da aplicação
+# IMPORTANTE: Copiar tudo, garantindo que data/ seja incluído
 COPY . .
 
 # Garantir que PYTHONPATH inclui /app
 ENV PYTHONPATH=/app
 
-# Criar diretórios necessários
-RUN mkdir -p /app/data /app/logs
+# Criar diretórios necessários (se não existirem)
+RUN mkdir -p /app/logs /app/assets /app/config
+
+# Verificar estrutura (debug - útil para diagnosticar problemas)
+RUN echo "=== Estrutura /app ===" && ls -la /app/ && \
+    echo "=== Estrutura /app/data ===" && ls -la /app/data/ && \
+    echo "=== Verificando __init__.py ===" && \
+    if [ -f /app/data/__init__.py ]; then \
+        echo "✅ __init__.py encontrado:" && cat /app/data/__init__.py; \
+    else \
+        echo "❌ ERRO: __init__.py NÃO encontrado!" && exit 1; \
+    fi && \
+    echo "=== Verificando módulos data ===" && \
+    ls -la /app/data/*.py
 
 # Expor porta 5000
 EXPOSE 5000
