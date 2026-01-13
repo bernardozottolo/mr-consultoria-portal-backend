@@ -4,6 +4,7 @@ from .auth import generate_token, verify_token, get_token_from_request
 from .users import users_bp
 from .reports import reports_bp
 from .spreadsheets import spreadsheets_bp
+from .enel_spreadsheets import enel_spreadsheets_bp
 from .config import (
     DEBUG, IS_PRODUCTION, ENABLE_CORS, CORS_ORIGINS,
     FLASK_HOST, FLASK_PORT, JWT_SECRET, ROOT_DIR
@@ -51,7 +52,8 @@ else:
 app.register_blueprint(users_bp)
 app.register_blueprint(reports_bp)
 app.register_blueprint(spreadsheets_bp)
-logger.info("Blueprints registrados: users_bp, reports_bp, spreadsheets_bp")
+app.register_blueprint(enel_spreadsheets_bp)
+logger.info("Blueprints registrados: users_bp, reports_bp, spreadsheets_bp, enel_spreadsheets_bp")
 with app.app_context():
     routes = [str(rule) for rule in app.url_map.iter_rules()]
     logger.info(f"Rotas disponíveis ({len(routes)}): {routes}")

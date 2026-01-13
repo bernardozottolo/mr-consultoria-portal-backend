@@ -51,7 +51,7 @@ def init_database():
         )
     ''')
     
-    # Tabela de planilhas enviadas
+    # Tabela de planilhas enviadas (por regional)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS spreadsheets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +62,20 @@ def init_database():
             status_column TEXT,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(regional)
+        )
+    ''')
+    
+    # Tabela de planilhas específicas do Enel
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS enel_spreadsheets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            spreadsheet_name TEXT NOT NULL,
+            file_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            sheet_name TEXT,
+            status_column TEXT,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(spreadsheet_name)
         )
     ''')
     

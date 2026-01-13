@@ -21,7 +21,7 @@ COPY . .
 ENV PYTHONPATH=/app
 
 # Criar diretórios necessários (se não existirem)
-RUN mkdir -p /app/logs /app/assets /app/config
+RUN mkdir -p /app/logs /app/assets /app/config /app/db
 
 # Verificar estrutura (debug - útil para diagnosticar problemas)
 RUN echo "=== Estrutura /app ===" && ls -la /app/ && \
