@@ -535,7 +535,12 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         
         file_path = result_dict['file_path']
         # Sempre usar a primeira aba (ignorar o nome salvo no banco)
-        status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
+        # Permitir sobrescrever status_column via query parameter
+        status_column_param = request.args.get('status_column')
+        if status_column_param:
+            status_column = status_column_param
+        else:
+            status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
         
         logger.info(f"Usando planilha: {spreadsheet_name}, primeira aba (automática), coluna: {status_column}")
         

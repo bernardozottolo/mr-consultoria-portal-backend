@@ -706,6 +706,90 @@ def generate_pdf(client_id):
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
     
+    # Buscar dados de Licença Sanitária - Renovação
+    licenca_sanitaria_data = None
+    try:
+        from .enel_spreadsheets import get_enel_spreadsheet_data
+        # Criar contexto de request fake para chamar a função
+        spreadsheet_name = 'ENEL - Legalização CE'
+        years_str = ','.join(map(str, years))
+        # Usar coluna diferente: 'Relatório Status detalhado acionamento'
+        status_column_param = 'Relatório Status detalhado acionamento'
+        with current_app.test_request_context(
+            path=f'/api/enel-spreadsheets/{spreadsheet_name}/data',
+            query_string=f'years={years_str}&status_column={status_column_param}',
+            headers={'Authorization': request.headers.get('Authorization', '')}
+        ):
+            # Chamar a função diretamente
+            result = get_enel_spreadsheet_data(spreadsheet_name)
+            if hasattr(result, 'get_json'):
+                licenca_sanitaria_data = result.get_json()
+            elif isinstance(result, tuple) and len(result) > 0:
+                # Se retornar (jsonify(...), status_code)
+                if result[1] == 200:  # Status code 200
+                    licenca_sanitaria_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Licença Sanitária: status {result[1]}")
+        
+        # Converter anos se necessário (mesma lógica de conversão)
+        if licenca_sanitaria_data:
+            def convert_years_keys(years_dict):
+                """Converte chaves de string para int se necessário"""
+                if not years_dict:
+                    return years_dict
+                keys_list = list(years_dict.keys())
+                if keys_list and isinstance(keys_list[0], str):
+                    return {int(k): v for k, v in years_dict.items()}
+                return years_dict
+            
+            # Converter anos em todas as estruturas
+            if licenca_sanitaria_data.get('total_demandado', {}).get('years'):
+                licenca_sanitaria_data['total_demandado']['years'] = convert_years_keys(licenca_sanitaria_data['total_demandado']['years'])
+            
+            if licenca_sanitaria_data.get('concluidos', {}).get('years'):
+                licenca_sanitaria_data['concluidos']['years'] = convert_years_keys(licenca_sanitaria_data['concluidos']['years'])
+            
+            if licenca_sanitaria_data.get('em_andamento', {}).get('total', {}).get('years'):
+                licenca_sanitaria_data['em_andamento']['total']['years'] = convert_years_keys(licenca_sanitaria_data['em_andamento']['total']['years'])
+            
+            for subcat in licenca_sanitaria_data.get('em_andamento', {}).get('subcategorias', []):
+                if subcat.get('years'):
+                    subcat['years'] = convert_years_keys(subcat['years'])
+    except Exception as e:
+        logger.error(f"Erro ao buscar dados de Licença Sanitária - Renovação: {e}", exc_info=True)
+                logger.info(f"Dados CE carregados - Total demandado years: {legalizacao_ce_data.get('total_demandado', {}).get('years', {})}")
+                logger.info(f"Years solicitados: {years} (tipos: {[type(y).__name__ for y in years]})")
+                logger.info(f"Years nos dados: {list(legalizacao_ce_data.get('total_demandado', {}).get('years', {}).keys())} (tipos: {[type(k).__name__ for k in legalizacao_ce_data.get('total_demandado', {}).get('years', {}).keys()]})")
+                
+                # Garantir que os anos nos dados sejam inteiros (pode vir como string do JSON)
+                def convert_years_keys(years_dict):
+                    """Converte chaves de string para int se necessário"""
+                    if not years_dict:
+                        return years_dict
+                    keys_list = list(years_dict.keys())
+                    if keys_list and isinstance(keys_list[0], str):
+                        return {int(k): v for k, v in years_dict.items()}
+                    return years_dict
+                
+                # Converter anos em total_demandado
+                if legalizacao_ce_data.get('total_demandado', {}).get('years'):
+                    legalizacao_ce_data['total_demandado']['years'] = convert_years_keys(legalizacao_ce_data['total_demandado']['years'])
+                
+                # Converter anos em concluidos
+                if legalizacao_ce_data.get('concluidos', {}).get('years'):
+                    legalizacao_ce_data['concluidos']['years'] = convert_years_keys(legalizacao_ce_data['concluidos']['years'])
+                
+                # Converter anos em em_andamento.total
+                if legalizacao_ce_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_ce_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_ce_data['em_andamento']['total']['years'])
+                
+                # Converter também nas subcategorias
+                for subcat in legalizacao_ce_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
+    
     # Renderizar template HTML
     html_content = render_template(
         'report_pdf.html',
@@ -716,6 +800,7 @@ def generate_pdf(client_id):
         estados_lista=estados_lista,
         legalizacao_lista=legalizacao_lista,
         legalizacao_ce_data=legalizacao_ce_data,
+        licenca_sanitaria_data=licenca_sanitaria_data,
         years=years,
         comments=comments,
         mr_logo_path=mr_logo_base64,
