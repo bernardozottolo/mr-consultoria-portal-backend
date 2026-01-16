@@ -82,7 +82,68 @@ def upload_enel_spreadsheet():
         
         # Salvar arquivo
         file_path = config.SPREADSHEETS_DIR / safe_filename
-        file.save(str(file_path))
+        
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,B,C',
+                'location': 'enel_spreadsheets.py:84',
+                'message': 'ANTES de salvar - estado do diretório',
+                'data': {
+                    'file_path': str(file_path),
+                    'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
+                    'dir_exists': config.SPREADSHEETS_DIR.exists(),
+                    'dir_writable': os.access(config.SPREADSHEETS_DIR, os.W_OK) if config.SPREADSHEETS_DIR.exists() else False,
+                    'file_exists_before': file_path.exists(),
+                    'files_in_dir_before': [f.name for f in config.SPREADSHEETS_DIR.iterdir()] if config.SPREADSHEETS_DIR.exists() else []
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
+        
+        try:
+            file.save(str(file_path))
+        except Exception as save_error:
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'B',
+                    'location': 'enel_spreadsheets.py:85',
+                    'message': 'ERRO durante file.save()',
+                    'data': {
+                        'error': str(save_error),
+                        'error_type': type(save_error).__name__,
+                        'file_path': str(file_path)
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
+            logger.error(f"ERRO ao salvar arquivo: {save_error}", exc_info=True)
+            return jsonify({'error': f'Erro ao salvar arquivo: {str(save_error)}'}), 500
+        
+        # #region agent log
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,B,C',
+                'location': 'enel_spreadsheets.py:87',
+                'message': 'APÓS file.save() - verificação imediata',
+                'data': {
+                    'file_path': str(file_path),
+                    'exists_immediately': file_path.exists(),
+                    'file_size': file_path.stat().st_size if file_path.exists() else 0,
+                    'files_in_dir_after_save': [f.name for f in config.SPREADSHEETS_DIR.iterdir()] if config.SPREADSHEETS_DIR.exists() else []
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         
         # Validar que o arquivo foi salvo corretamente
         if not file_path.exists():
@@ -122,8 +183,29 @@ def upload_enel_spreadsheet():
         if existing:
             # Atualizar registro existente
             old_file_path = existing['file_path']
-            # Remover arquivo antigo se existir
-            if os.path.exists(old_file_path):
+            
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'D',
+                    'location': 'enel_spreadsheets.py:122',
+                    'message': 'Registro existente encontrado - ANTES de remover arquivo antigo',
+                    'data': {
+                        'old_file_path': old_file_path,
+                        'new_file_path': str(file_path),
+                        'same_path': old_file_path == str(file_path),
+                        'old_file_exists': os.path.exists(old_file_path),
+                        'new_file_exists': file_path.exists(),
+                        'files_in_dir_before_remove': [f.name for f in config.SPREADSHEETS_DIR.iterdir()] if config.SPREADSHEETS_DIR.exists() else []
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
+            
+            # Remover arquivo antigo se existir E for diferente do novo
+            if os.path.exists(old_file_path) and old_file_path != str(file_path):
                 try:
                     os.remove(old_file_path)
                     logger.info(f"Arquivo antigo removido: {old_file_path}")
@@ -144,6 +226,24 @@ def upload_enel_spreadsheet():
         
         conn.commit()
         conn.close()
+        
+        # #region agent log
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,B,C,D',
+                'location': 'enel_spreadsheets.py:146',
+                'message': 'APÓS salvar no banco - verificação final',
+                'data': {
+                    'file_path': str(file_path),
+                    'exists_after_db': file_path.exists(),
+                    'file_size_after_db': file_path.stat().st_size if file_path.exists() else 0,
+                    'files_in_dir_final': [f.name for f in config.SPREADSHEETS_DIR.iterdir()] if config.SPREADSHEETS_DIR.exists() else []
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         
         return jsonify({
             'message': 'Planilha enviada com sucesso',
@@ -267,6 +367,121 @@ def debug_list_files():
     except Exception as e:
         logger.error(f"Erro ao listar arquivos: {str(e)}", exc_info=True)
         return jsonify({'error': f'Erro ao listar arquivos: {str(e)}'}), 500
+
+
+@enel_spreadsheets_bp.route('/debug/logs/debug', methods=['GET'])
+@login_required
+def debug_get_debug_logs():
+    """Endpoint para acessar logs de debug (NDJSON)"""
+    try:
+        debug_log_path = Path('.cursor') / 'debug.log'
+        
+        if not debug_log_path.exists():
+            return jsonify({
+                'error': 'Arquivo de log não encontrado',
+                'path': str(debug_log_path),
+                'exists': False
+            }), 404
+        
+        # Ler últimas N linhas (padrão: 100)
+        lines_limit = request.args.get('lines', type=int, default=100)
+        
+        with open(debug_log_path, 'r', encoding='utf-8') as f:
+            all_lines = f.readlines()
+        
+        # Pegar últimas N linhas
+        lines_to_return = all_lines[-lines_limit:] if len(all_lines) > lines_limit else all_lines
+        
+        # Tentar parsear cada linha como JSON
+        parsed_logs = []
+        for line_num, line in enumerate(lines_to_return, start=len(all_lines) - len(lines_to_return) + 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                log_entry = json.loads(line)
+                parsed_logs.append(log_entry)
+            except json.JSONDecodeError:
+                # Se não for JSON válido, adicionar como texto
+                parsed_logs.append({
+                    'line': line_num,
+                    'raw': line,
+                    'parse_error': True
+                })
+        
+        return jsonify({
+            'path': str(debug_log_path),
+            'total_lines': len(all_lines),
+            'returned_lines': len(parsed_logs),
+            'logs': parsed_logs
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro ao ler logs de debug: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Erro ao ler logs de debug: {str(e)}'}), 500
+
+
+@enel_spreadsheets_bp.route('/debug/logs/app', methods=['GET'])
+@login_required
+def debug_get_app_logs():
+    """Endpoint para acessar logs do Flask"""
+    try:
+        from datetime import datetime
+        from .config import ROOT_DIR
+        
+        # Tentar arquivo de hoje primeiro
+        today_log = ROOT_DIR / 'logs' / f'app_{datetime.now().strftime("%Y%m%d")}.log'
+        
+        # Se não existir, listar todos os arquivos de log disponíveis
+        log_dir = ROOT_DIR / 'logs'
+        if not log_dir.exists():
+            return jsonify({
+                'error': 'Diretório de logs não encontrado',
+                'path': str(log_dir),
+                'exists': False
+            }), 404
+        
+        # Listar todos os arquivos de log
+        log_files = sorted([f for f in log_dir.glob('app_*.log')], reverse=True)
+        
+        # Se especificou um arquivo específico via query param
+        log_file_name = request.args.get('file', None)
+        if log_file_name:
+            log_path = log_dir / log_file_name
+            if not log_path.exists():
+                return jsonify({
+                    'error': f'Arquivo de log não encontrado: {log_file_name}',
+                    'available_files': [f.name for f in log_files]
+                }), 404
+        else:
+            # Usar o mais recente ou o de hoje
+            log_path = today_log if today_log.exists() else (log_files[0] if log_files else None)
+        
+        if not log_path or not log_path.exists():
+            return jsonify({
+                'error': 'Nenhum arquivo de log encontrado',
+                'available_files': [f.name for f in log_files] if log_files else []
+            }), 404
+        
+        # Ler últimas N linhas (padrão: 100)
+        lines_limit = request.args.get('lines', type=int, default=100)
+        
+        with open(log_path, 'r', encoding='utf-8') as f:
+            all_lines = f.readlines()
+        
+        # Pegar últimas N linhas
+        lines_to_return = all_lines[-lines_limit:] if len(all_lines) > lines_limit else all_lines
+        
+        return jsonify({
+            'path': str(log_path),
+            'file_name': log_path.name,
+            'total_lines': len(all_lines),
+            'returned_lines': len(lines_to_return),
+            'available_files': [f.name for f in log_files],
+            'logs': [line.strip() for line in lines_to_return if line.strip()]
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro ao ler logs do Flask: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Erro ao ler logs do Flask: {str(e)}'}), 500
 
 
 @enel_spreadsheets_bp.route('/<spreadsheet_name>/data', methods=['GET'])
