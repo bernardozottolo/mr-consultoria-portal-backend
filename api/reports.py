@@ -303,25 +303,8 @@ def generate_pdf(client_id):
     
     client_dict = dict(client)
     
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A,B,C',
-            'location': 'reports.py:304',
-            'message': 'Dados do cliente obtidos do banco',
-            'data': {
-                'client_id': client_id,
-                'client_id_lower': client_id.lower(),
-                'client_dict': client_dict,
-                'logo_path_from_db': client_dict.get('logo_path')
-            },
-            'timestamp': int(dt.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
+    # Import datetime para logs (antes de usar)
+    from datetime import datetime as dt
     
     # Preparar paths das imagens e converter para base64 (WeasyPrint funciona melhor com base64)
     images_dir = config.IMAGES_DIR
@@ -349,9 +332,6 @@ def generate_pdf(client_id):
     mr_logo_path = str(images_dir / 'mr-consultoria-logo.png')
     # Remover 'images/' do logo_path se existir e construir caminho completo
     client_logo_filename = client_dict['logo_path'].replace('images/', '').replace('static/images/', '')
-    
-    # Import datetime para logs
-    from datetime import datetime as dt
     
     # #region agent log
     log_dir = Path('.cursor')
@@ -420,6 +400,8 @@ def generate_pdf(client_id):
     # #endregion
     
     # Determinar caminho do logo do cliente
+    client_logo_path = None  # Inicializar variável
+    
     if client_id.lower() == 'enel' or client_dict.get('nome', '').upper() == 'ENEL':
         # Sempre usar logo do frontend para ENEL se encontrado
         if frontend_enel_path and os.path.exists(frontend_enel_path):
@@ -457,6 +439,11 @@ def generate_pdf(client_id):
             if os.path.exists(frontend_client_logo_path):
                 client_logo_path = frontend_client_logo_path
                 logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
+    
+    # Garantir que client_logo_path está definido
+    if not client_logo_path:
+        client_logo_path = str(images_dir / client_logo_filename)
+        logger.warning(f"client_logo_path não definido, usando padrão: {client_logo_path}")
     
     # Log de caminhos para debug
     logger.info(f"Procurando imagens em: {images_dir}")
@@ -630,5 +617,7 @@ def generate_pdf(client_id):
         return response
     except Exception as e:
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback completo: {traceback.format_exc()}")
         return jsonify({'error': f'Erro ao gerar PDF: {str(e)}'}), 500
 
