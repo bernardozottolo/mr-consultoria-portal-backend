@@ -206,6 +206,43 @@ def get_required_spreadsheets():
     return jsonify({'required_spreadsheets': ENEL_REQUIRED_SPREADSHEETS}), 200
 
 
+@enel_spreadsheets_bp.route('/debug/files', methods=['GET'])
+@login_required
+def debug_list_files():
+    """Endpoint de debug para listar arquivos no diretório de planilhas"""
+    try:
+        files = []
+        if config.SPREADSHEETS_DIR.exists():
+            for file_path in config.SPREADSHEETS_DIR.iterdir():
+                if file_path.is_file():
+                    files.append({
+                        'name': file_path.name,
+                        'path': str(file_path),
+                        'exists': file_path.exists(),
+                        'size': file_path.stat().st_size if file_path.exists() else 0
+                    })
+        
+        # Também listar registros do banco
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT spreadsheet_name, file_path, file_name
+            FROM enel_spreadsheets
+        ''')
+        db_records = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return jsonify({
+            'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
+            'dir_exists': config.SPREADSHEETS_DIR.exists(),
+            'files_in_dir': files,
+            'db_records': db_records
+        }), 200
+    except Exception as e:
+        logger.error(f"Erro ao listar arquivos: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Erro ao listar arquivos: {str(e)}'}), 500
+
+
 @enel_spreadsheets_bp.route('/<spreadsheet_name>/data', methods=['GET'])
 @login_required
 def get_enel_spreadsheet_data(spreadsheet_name):
@@ -235,6 +272,72 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         sheet_name = result['sheet_name']
         status_column = result['status_column'] or 'Relatório Status detalhado'
         
+        # Verificar se o arquivo existe
+        # Converter para Path se necessário
+        if isinstance(file_path, str):
+            file_path_obj = Path(file_path)
+        else:
+            file_path_obj = file_path
+        
+        # Se o caminho não for absoluto, tentar construir caminho relativo ao SPREADSHEETS_DIR
+        if not file_path_obj.is_absolute():
+            # Tentar usar o caminho completo primeiro
+            if config.SPREADSHEETS_DIR.exists():
+                file_path_obj = config.SPREADSHEETS_DIR / file_path_obj.name
+            else:
+                # Se o diretório não existe, tentar usar o caminho como está
+                pass
+        
+        # Verificar se arquivo existe
+        if not file_path_obj.exists():
+            logger.warning(f"Arquivo não encontrado no caminho esperado: {file_path_obj}")
+            logger.info(f"Caminho original do banco: {file_path}")
+            logger.info(f"SPREADSHEETS_DIR: {config.SPREADSHEETS_DIR}")
+            
+            # Tentar encontrar o arquivo pelo nome no diretório de planilhas
+            file_name = result.get('file_name', '')
+            found_file = None
+            
+            if file_name and config.SPREADSHEETS_DIR.exists():
+                # Tentar encontrar por nome exato
+                alternative_path = config.SPREADSHEETS_DIR / file_name
+                if alternative_path.exists():
+                    logger.info(f"Arquivo encontrado por nome: {alternative_path}")
+                    found_file = alternative_path
+                else:
+                    # Procurar arquivos que contenham parte do nome da planilha
+                    spreadsheet_name_clean = spreadsheet_name.replace(' ', '_').replace('á', 'a').replace('Á', 'A').lower()
+                    for possible_file in config.SPREADSHEETS_DIR.glob('*'):
+                        if possible_file.is_file():
+                            file_name_lower = possible_file.name.lower()
+                            # Verificar se o nome do arquivo contém partes do nome da planilha
+                            if 'ceara' in file_name_lower or 'ceara' in spreadsheet_name_clean:
+                                if 'alvaras' in file_name_lower or 'alvarás' in file_name_lower:
+                                    logger.info(f"Arquivo possível encontrado: {possible_file}")
+                                    found_file = possible_file
+                                    break
+            
+            if not found_file:
+                # Listar arquivos no diretório para debug
+                files_in_dir = []
+                if config.SPREADSHEETS_DIR.exists():
+                    try:
+                        files_in_dir = [str(f.name) for f in config.SPREADSHEETS_DIR.glob('*') if f.is_file()]
+                    except Exception as e:
+                        logger.error(f"Erro ao listar arquivos: {e}")
+                
+                return jsonify({
+                    'error': f'Arquivo não encontrado: {file_path_obj}',
+                    'original_path': str(file_path),
+                    'searched_path': str(file_path_obj),
+                    'file_name': file_name,
+                    'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
+                    'files_in_dir': files_in_dir,
+                    'hint': 'Verifique se o arquivo foi enviado corretamente. Use /api/enel-spreadsheets/debug/files para ver arquivos disponíveis.'
+                }), 404
+            
+            file_path_obj = found_file
+        
         # Obter anos da query string
         years_param = request.args.get('years', '')
         if years_param:
@@ -253,10 +356,38 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             years = [2024, 2025]  # Fallback
         
         # Ler arquivo
-        sheet_data = read_spreadsheet_file(
-            file_path=file_path,
-            sheet_name=sheet_name
-        )
+        logger.info(f"Lendo arquivo: {file_path_obj}")
+        try:
+            sheet_data = read_spreadsheet_file(
+                file_path=str(file_path_obj),
+                sheet_name=sheet_name
+            )
+        except FileNotFoundError as e:
+            logger.error(f"Arquivo não encontrado: {e}")
+            # Tentar buscar por nome similar no diretório
+            file_name = result.get('file_name', '')
+            if file_name:
+                # Procurar arquivos que contenham parte do nome
+                possible_files = list(config.SPREADSHEETS_DIR.glob(f'*{file_name}*'))
+                if possible_files:
+                    logger.info(f"Arquivos similares encontrados: {[str(f) for f in possible_files]}")
+                    # Tentar usar o primeiro arquivo encontrado
+                    file_path_obj = possible_files[0]
+                    logger.info(f"Tentando usar arquivo: {file_path_obj}")
+                    sheet_data = read_spreadsheet_file(
+                        file_path=str(file_path_obj),
+                        sheet_name=sheet_name
+                    )
+                else:
+                    return jsonify({
+                        'error': f'Arquivo não encontrado: {file_path_obj}',
+                        'original_path': str(file_path),
+                        'file_name': file_name,
+                        'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
+                        'hint': 'Verifique se o arquivo foi enviado corretamente'
+                    }), 404
+            else:
+                raise
         
         # Processar dados para estrutura hierárquica
         processed_data = process_enel_legalizacao_data(
@@ -267,6 +398,12 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         
         return jsonify(processed_data), 200
         
+    except FileNotFoundError as e:
+        logger.error(f"Arquivo não encontrado: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': f'Arquivo não encontrado: {str(e)}',
+            'hint': 'Verifique se a planilha foi enviada corretamente através do upload'
+        }), 404
     except Exception as e:
         logger.error(f"Erro ao buscar dados da planilha: {str(e)}", exc_info=True)
         return jsonify({'error': f'Erro ao buscar dados: {str(e)}'}), 500
