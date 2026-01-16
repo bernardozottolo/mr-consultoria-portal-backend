@@ -329,22 +329,42 @@ def generate_pdf(client_id):
     mr_logo_path = str(images_dir / 'mr-consultoria-logo.png')
     # Remover 'images/' do logo_path se existir e construir caminho completo
     client_logo_filename = client_dict['logo_path'].replace('images/', '').replace('static/images/', '')
-    client_logo_path = str(images_dir / client_logo_filename)
     
-    # Se o logo do cliente não existir, tentar caminhos alternativos
-    if not os.path.exists(client_logo_path):
-        # Tentar com diferentes variações do nome
-        alt_paths = [
-            str(images_dir / 'enel-logo.png'),
-            str(images_dir / 'ENEL-logo.png'),
-            str(images_dir / 'enel_logo.png'),
-            str(images_dir / 'ENEL_logo.png'),
-        ]
-        for alt_path in alt_paths:
-            if os.path.exists(alt_path):
-                client_logo_path = alt_path
-                logger.info(f"Logo encontrado em caminho alternativo: {client_logo_path}")
-                break
+    # Para ENEL, sempre buscar no frontend primeiro (caminho exato informado pelo usuário)
+    frontend_images_dir = ROOT_DIR.parent / 'portal-frontend' / 'images'
+    frontend_enel_path = str(frontend_images_dir / 'enel-logo.png')
+    
+    if client_id.lower() == 'enel':
+        # Sempre usar logo do frontend para ENEL
+        if os.path.exists(frontend_enel_path):
+            client_logo_path = frontend_enel_path
+            logger.info(f"Logo ENEL encontrado no frontend: {frontend_enel_path}")
+        else:
+            # Fallback para backend se não encontrar no frontend
+            client_logo_path = str(images_dir / client_logo_filename)
+            logger.warning(f"Logo ENEL não encontrado no frontend, tentando backend: {client_logo_path}")
+    else:
+        # Para outros clientes, tentar backend primeiro
+        client_logo_path = str(images_dir / client_logo_filename)
+        if not os.path.exists(client_logo_path):
+            # Se não encontrou no backend, tentar no frontend
+            frontend_client_logo_path = str(frontend_images_dir / client_logo_filename)
+            if os.path.exists(frontend_client_logo_path):
+                client_logo_path = frontend_client_logo_path
+                logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
+            else:
+                # Tentar variações do nome
+                alt_paths = [
+                    str(images_dir / 'enel-logo.png'),
+                    str(images_dir / 'ENEL-logo.png'),
+                    str(images_dir / 'enel_logo.png'),
+                    str(images_dir / 'ENEL_logo.png'),
+                ]
+                for alt_path in alt_paths:
+                    if os.path.exists(alt_path):
+                        client_logo_path = alt_path
+                        logger.info(f"Logo encontrado em caminho alternativo: {client_logo_path}")
+                        break
     
     # Log de caminhos para debug
     logger.info(f"Procurando imagens em: {images_dir}")
@@ -354,17 +374,22 @@ def generate_pdf(client_id):
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
     
-    # Se ainda não encontrou o logo do cliente, tentar buscar do frontend
+    # Se ainda não encontrou o logo do cliente após converter, tentar buscar do frontend
+    if not client_logo_base64 and os.path.exists(client_logo_path):
+        # Se o caminho existe mas não converteu, tentar converter novamente
+        client_logo_base64 = get_image_base64(client_logo_path)
+    
+    # Se ainda não encontrou, tentar buscar do frontend diretamente
     if not client_logo_base64:
-        # Tentar caminho relativo ao frontend
         frontend_images_dir = ROOT_DIR.parent / 'portal-frontend' / 'images'
-        frontend_client_logo_path = str(frontend_images_dir / client_logo_filename)
-        if os.path.exists(frontend_client_logo_path):
-            client_logo_base64 = get_image_base64(frontend_client_logo_path)
-            logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
+        # Tentar diretamente enel-logo.png (caminho exato informado pelo usuário)
+        exact_enel_path = str(frontend_images_dir / 'enel-logo.png')
+        if os.path.exists(exact_enel_path):
+            client_logo_base64 = get_image_base64(exact_enel_path)
+            logger.info(f"Logo encontrado no frontend (caminho exato): {exact_enel_path}")
         else:
             # Tentar também variações do nome no frontend
-            for alt_name in ['enel-logo.png', 'ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png']:
+            for alt_name in ['ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png', client_logo_filename]:
                 alt_frontend_path = str(frontend_images_dir / alt_name)
                 if os.path.exists(alt_frontend_path):
                     client_logo_base64 = get_image_base64(alt_frontend_path)
@@ -399,6 +424,39 @@ def generate_pdf(client_id):
                         legalizacao_ce_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
                     else:
                         logger.warning(f"Erro ao buscar dados CE: status {result[1]}")
+            
+            # Log para debug - verificar estrutura dos dados
+            if legalizacao_ce_data:
+                logger.info(f"Dados CE carregados - Total demandado years: {legalizacao_ce_data.get('total_demandado', {}).get('years', {})}")
+                logger.info(f"Years solicitados: {years} (tipos: {[type(y).__name__ for y in years]})")
+                logger.info(f"Years nos dados: {list(legalizacao_ce_data.get('total_demandado', {}).get('years', {}).keys())} (tipos: {[type(k).__name__ for k in legalizacao_ce_data.get('total_demandado', {}).get('years', {}).keys()]})")
+                
+                # Garantir que os anos nos dados sejam inteiros (pode vir como string do JSON)
+                def convert_years_keys(years_dict):
+                    """Converte chaves de string para int se necessário"""
+                    if not years_dict:
+                        return years_dict
+                    keys_list = list(years_dict.keys())
+                    if keys_list and isinstance(keys_list[0], str):
+                        return {int(k): v for k, v in years_dict.items()}
+                    return years_dict
+                
+                # Converter anos em total_demandado
+                if legalizacao_ce_data.get('total_demandado', {}).get('years'):
+                    legalizacao_ce_data['total_demandado']['years'] = convert_years_keys(legalizacao_ce_data['total_demandado']['years'])
+                
+                # Converter anos em concluidos
+                if legalizacao_ce_data.get('concluidos', {}).get('years'):
+                    legalizacao_ce_data['concluidos']['years'] = convert_years_keys(legalizacao_ce_data['concluidos']['years'])
+                
+                # Converter anos em em_andamento.total
+                if legalizacao_ce_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_ce_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_ce_data['em_andamento']['total']['years'])
+                
+                # Converter também nas subcategorias
+                for subcat in legalizacao_ce_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
     
