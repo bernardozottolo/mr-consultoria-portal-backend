@@ -528,7 +528,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 years = []
         else:
             # Usar anos padrão baseado em report_year_start e report_year_end
-            from datetime import datetime
             report_year_start = request.args.get('report_year_start', type=int) or 2024
             report_year_end = request.args.get('report_year_end', type=int) or datetime.now().year
             years = list(range(report_year_start, report_year_end + 1))
