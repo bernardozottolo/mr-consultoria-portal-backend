@@ -78,6 +78,20 @@
             font-size: 2.5em;
         }
         
+        .visao-geral-page {
+            page-break-before: always;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .visao-geral-title {
+            color: #2f84a8;
+            margin: 40px 0;
+            padding: 0;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        
         .page-wrapper {
             width: 100%;
             text-align: center;
@@ -201,8 +215,59 @@
         <h1 class="legalizacoes-title">
             Legalizações - {{ estados }}
         </h1>
+    </div>
+    
+    <!-- Páginas de Regionais (condicionais) -->
+    {% if 'CE' in estados_lista %}
+    <!-- Terceira página: Regional Ceará -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional Ceará
+        </h1>
+    </div>
+    {% endif %}
+    
+    {% if 'SP' in estados_lista %}
+    <!-- Regional São Paulo -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional São Paulo
+        </h1>
+    </div>
+    {% endif %}
+    
+    {% if 'RJ' in estados_lista %}
+    <!-- Regional Rio de Janeiro -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional Rio de Janeiro
+        </h1>
+    </div>
+    {% endif %}
+    
+    <!-- Quarta página: Visão Geral - Alvarás de Funcionamento -->
+    {% if legalizacao_ce_data and 'CE' in legalizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">
+            Visão Geral - Alvarás de Funcionamento
+        </h1>
         
-        {% if legalizacao_ce_data and 'CE' in legalizacao_lista %}
         <!-- Tabela de Legalização CE -->
         <div class="regional-data">
             <table class="data-table">
@@ -261,46 +326,6 @@
                 </tbody>
             </table>
         </div>
-        {% endif %}
-    </div>
-    
-    <!-- Páginas de Regionais (condicionais) -->
-    {% if 'CE' in estados_lista %}
-    <!-- Terceira página: Regional Ceará -->
-    <div class="regional-page">
-        <div class="header-logos">
-            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
-            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
-        </div>
-        <h1 class="regional-title">
-            Regional Ceará
-        </h1>
-    </div>
-    {% endif %}
-    
-    {% if 'SP' in estados_lista %}
-    <!-- Regional São Paulo -->
-    <div class="regional-page">
-        <div class="header-logos">
-            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
-            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
-        </div>
-        <h1 class="regional-title">
-            Regional São Paulo
-        </h1>
-    </div>
-    {% endif %}
-    
-    {% if 'RJ' in estados_lista %}
-    <!-- Regional Rio de Janeiro -->
-    <div class="regional-page">
-        <div class="header-logos">
-            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
-            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
-        </div>
-        <h1 class="regional-title">
-            Regional Rio de Janeiro
-        </h1>
     </div>
     {% endif %}
     
