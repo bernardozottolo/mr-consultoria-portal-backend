@@ -836,7 +836,7 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         try:
             sheet_data = read_spreadsheet_file(
                 file_path=str(file_path_obj),
-                sheet_name=sheet_name
+                sheet_name=None  # None = primeira aba automaticamente
             )
         except FileNotFoundError as e:
             logger.error(f"Arquivo não encontrado: {e}")
