@@ -539,29 +539,100 @@ def generate_pdf(client_id):
         }) + '\n')
     # #endregion
     
-    # Se ainda não encontrou o logo do cliente após converter, tentar buscar do frontend
+    # Se ainda não encontrou o logo do cliente após converter, tentar buscar via HTTP do frontend
     if not client_logo_base64:
-        # Tentar diretamente enel-logo.png no frontend (caminho exato informado pelo usuário)
-        if frontend_images_dir:
-            exact_enel_path = str(frontend_images_dir / 'enel-logo.png')
-            if os.path.exists(exact_enel_path):
-                client_logo_base64 = get_image_base64(exact_enel_path)
-                logger.info(f"Logo encontrado no frontend (caminho exato): {exact_enel_path}")
+        # Para ENEL, tentar baixar via HTTP do container frontend (nginx)
+        if client_id.lower() == 'enel' or client_dict.get('nome', '').upper() == 'ENEL':
+            try:
+                import urllib.request
+                import socket
+                
+                # Tentar diferentes URLs possíveis para o logo
+                # No Docker, o frontend está acessível pelo nome do serviço 'frontend' na mesma rede
+                possible_urls = []
+                
+                # 1. Via nome do serviço Docker (mais provável em produção)
+                possible_urls.append('http://frontend/images/enel-logo.png')
+                
+                # 2. Via variável de ambiente se configurada
+                frontend_url = os.environ.get('FRONTEND_URL', '')
+                if frontend_url:
+                    possible_urls.insert(0, f'{frontend_url.rstrip("/")}/images/enel-logo.png')
+                
+                # 3. Via host da requisição atual (se frontend e backend estão no mesmo domínio)
+                if request.host:
+                    # Remover porta se houver
+                    host_without_port = request.host.split(':')[0]
+                    possible_urls.append(f'http://{host_without_port}/images/enel-logo.png')
+                
+                # 4. Tentativas locais para desenvolvimento
+                possible_urls.extend([
+                    'http://localhost/images/enel-logo.png',
+                    'http://127.0.0.1/images/enel-logo.png',
+                ])
+                
                 # #region agent log
                 with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
                     f.write(json.dumps({
                         'sessionId': 'debug-session',
                         'runId': 'run1',
                         'hypothesisId': 'C',
-                        'location': 'reports.py:390',
-                        'message': 'Logo encontrado no frontend - segunda tentativa',
+                        'location': 'reports.py:520',
+                        'message': 'Tentando baixar logo ENEL via HTTP',
                         'data': {
-                            'exact_enel_path': exact_enel_path,
-                            'base64_length': len(client_logo_base64) if client_logo_base64 else 0
+                            'possible_urls': possible_urls,
+                            'request_host': request.host if hasattr(request, 'host') else None
                         },
                         'timestamp': int(dt.now().timestamp() * 1000)
                     }) + '\n')
                 # #endregion
+                
+                for url in possible_urls:
+                    try:
+                        req = urllib.request.Request(url)
+                        req.add_header('User-Agent', 'Mozilla/5.0')
+                        with urllib.request.urlopen(req, timeout=3) as response:
+                            if response.status == 200:
+                                img_data = response.read()
+                                import base64
+                                base64_str = f"data:image/png;base64,{base64.b64encode(img_data).decode('utf-8')}"
+                                client_logo_base64 = base64_str
+                                logger.info(f"Logo ENEL baixado via HTTP: {url}")
+                                # #region agent log
+                                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                    f.write(json.dumps({
+                                        'sessionId': 'debug-session',
+                                        'runId': 'run1',
+                                        'hypothesisId': 'C',
+                                        'location': 'reports.py:550',
+                                        'message': 'Logo ENEL baixado via HTTP com sucesso!',
+                                        'data': {
+                                            'url': url,
+                                            'base64_length': len(client_logo_base64) if client_logo_base64 else 0,
+                                            'image_size_bytes': len(img_data)
+                                        },
+                                        'timestamp': int(dt.now().timestamp() * 1000)
+                                    }) + '\n')
+                                # #endregion
+                                break
+                    except urllib.error.HTTPError as e:
+                        logger.debug(f"HTTP {e.code} ao baixar logo de {url}")
+                        continue
+                    except (urllib.error.URLError, socket.timeout, socket.gaierror) as e:
+                        logger.debug(f"Erro de conexão ao baixar logo de {url}: {e}")
+                        continue
+                    except Exception as e:
+                        logger.debug(f"Erro ao baixar logo de {url}: {e}")
+                        continue
+            except Exception as e:
+                logger.warning(f"Erro ao tentar baixar logo via HTTP: {e}")
+        
+        # Se ainda não encontrou, tentar caminhos locais alternativos
+        if not client_logo_base64 and frontend_images_dir:
+            exact_enel_path = str(frontend_images_dir / 'enel-logo.png')
+            if os.path.exists(exact_enel_path):
+                client_logo_base64 = get_image_base64(exact_enel_path)
+                logger.info(f"Logo encontrado no frontend (caminho exato): {exact_enel_path}")
             else:
                 # Tentar também variações do nome no frontend
                 for alt_name in ['ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png', client_logo_filename]:
