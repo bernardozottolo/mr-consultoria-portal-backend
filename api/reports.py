@@ -357,21 +357,56 @@ def generate_pdf(client_id):
     # Para ENEL, sempre buscar no frontend primeiro (caminho exato informado pelo usuário)
     # Tentar múltiplos caminhos possíveis para o frontend
     possible_frontend_dirs = [
-        ROOT_DIR.parent / 'portal-frontend' / 'images',  # Caminho padrão
-        ROOT_DIR / 'portal-frontend' / 'images',  # Alternativa
+        ROOT_DIR / 'portal-frontend' / 'images',  # Primeira opção: mesmo nível que portal-backend
+        ROOT_DIR.parent / 'portal-frontend' / 'images',  # Segunda opção: nível acima
         Path('/app') / 'portal-frontend' / 'images',  # Caminho absoluto no container
+        Path('/app/portal-frontend/images'),  # Caminho absoluto direto
     ]
     
     frontend_enel_path = None
     frontend_images_dir = None
     
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A',
+            'location': 'reports.py:368',
+            'message': 'Tentando encontrar logo ENEL - listando caminhos',
+            'data': {
+                'possible_paths': [str(p / 'enel-logo.png') for p in possible_frontend_dirs],
+                'paths_exist': [os.path.exists(str(p / 'enel-logo.png')) for p in possible_frontend_dirs]
+            },
+            'timestamp': int(dt.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
+    
     for frontend_dir in possible_frontend_dirs:
         enel_path = frontend_dir / 'enel-logo.png'
-        if os.path.exists(str(enel_path)):
-            frontend_enel_path = str(enel_path)
+        enel_path_str = str(enel_path)
+        if os.path.exists(enel_path_str):
+            frontend_enel_path = enel_path_str
             frontend_images_dir = frontend_dir
             logger.info(f"Diretório frontend encontrado: {frontend_dir}, Logo ENEL: {frontend_enel_path}")
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A',
+                    'location': 'reports.py:385',
+                    'message': 'Logo ENEL encontrado!',
+                    'data': {
+                        'found_path': frontend_enel_path,
+                        'found_dir': str(frontend_images_dir)
+                    },
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
             break
+        else:
+            logger.debug(f"Logo ENEL não encontrado em: {enel_path_str}")
     
     # #region agent log
     with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
