@@ -9,6 +9,8 @@ from data.database import get_db_connection
 import os
 import logging
 from pathlib import Path
+import json
+from datetime import datetime
 
 enel_spreadsheets_bp = Blueprint('enel_spreadsheets', __name__, url_prefix='/api/enel-spreadsheets')
 logger = logging.getLogger(__name__)
@@ -271,6 +273,27 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Converter Row para dict para facilitar acesso
         result_dict = dict(result)
         
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,B,C,D,E',
+                'location': 'enel_spreadsheets.py:272',
+                'message': 'Dados do banco de dados',
+                'data': {
+                    'spreadsheet_name': spreadsheet_name,
+                    'file_path_from_db': result_dict.get('file_path'),
+                    'file_name_from_db': result_dict.get('file_name'),
+                    'sheet_name_from_db': result_dict.get('sheet_name'),
+                    'status_column_from_db': result_dict.get('status_column')
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
+        
         file_path = result_dict['file_path']
         # Usar 'ALUF 2025' como padrão se não especificado (primeira aba)
         sheet_name = result_dict['sheet_name'] if result_dict['sheet_name'] else 'ALUF 2025'
@@ -285,6 +308,27 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         else:
             file_path_obj = file_path
         
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,B,C',
+                'location': 'enel_spreadsheets.py:283',
+                'message': 'Caminho inicial construído',
+                'data': {
+                    'file_path_str': str(file_path),
+                    'file_path_obj': str(file_path_obj),
+                    'is_absolute': file_path_obj.is_absolute(),
+                    'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
+                    'spreadsheets_dir_exists': config.SPREADSHEETS_DIR.exists() if hasattr(config, 'SPREADSHEETS_DIR') else False
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
+        
         # Se o caminho não for absoluto, tentar construir caminho relativo ao SPREADSHEETS_DIR
         if not file_path_obj.is_absolute():
             # Tentar usar o caminho completo primeiro
@@ -293,6 +337,24 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             else:
                 # Se o diretório não existe, tentar usar o caminho como está
                 pass
+        
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,C',
+                'location': 'enel_spreadsheets.py:298',
+                'message': 'Caminho após processamento',
+                'data': {
+                    'file_path_obj': str(file_path_obj),
+                    'exists': file_path_obj.exists() if file_path_obj else False
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         
         # Verificar se arquivo existe
         if not file_path_obj.exists():
@@ -304,16 +366,73 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             file_name = result_dict.get('file_name', '')
             found_file = None
             
+            # #region agent log
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A,D,E',
+                    'location': 'enel_spreadsheets.py:304',
+                    'message': 'Iniciando busca alternativa',
+                    'data': {
+                        'file_name_from_db': file_name,
+                        'spreadsheets_dir_exists': config.SPREADSHEETS_DIR.exists() if hasattr(config, 'SPREADSHEETS_DIR') else False
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
+            
             if file_name and config.SPREADSHEETS_DIR.exists():
                 # Tentar encontrar por nome exato
                 alternative_path = config.SPREADSHEETS_DIR / file_name
+                
+                # #region agent log
+                log_dir = Path('.cursor')
+                log_dir.mkdir(exist_ok=True)
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'A',
+                        'location': 'enel_spreadsheets.py:310',
+                        'message': 'Tentando caminho alternativo por nome exato',
+                        'data': {
+                            'alternative_path': str(alternative_path),
+                            'exists': alternative_path.exists()
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+                # #endregion
+                
                 if alternative_path.exists():
                     logger.info(f"Arquivo encontrado por nome: {alternative_path}")
                     found_file = alternative_path
                 else:
                     # Procurar arquivos que contenham parte do nome da planilha
                     spreadsheet_name_clean = spreadsheet_name.replace(' ', '_').replace('á', 'a').replace('Á', 'A').lower()
-                    for possible_file in config.SPREADSHEETS_DIR.glob('*'):
+                    all_files = list(config.SPREADSHEETS_DIR.glob('*'))
+                    
+                    # #region agent log
+                    log_dir = Path('.cursor')
+                    log_dir.mkdir(exist_ok=True)
+                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            'sessionId': 'debug-session',
+                            'runId': 'run1',
+                            'hypothesisId': 'E',
+                            'location': 'enel_spreadsheets.py:316',
+                            'message': 'Listando todos os arquivos no diretório',
+                            'data': {
+                                'all_files': [str(f.name) for f in all_files if f.is_file()],
+                                'spreadsheet_name_clean': spreadsheet_name_clean
+                            },
+                            'timestamp': int(datetime.now().timestamp() * 1000)
+                        }) + '\n')
+                    # #endregion
+                    
+                    for possible_file in all_files:
                         if possible_file.is_file():
                             file_name_lower = possible_file.name.lower()
                             # Verificar se o nome do arquivo contém partes do nome da planilha
@@ -321,6 +440,24 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                                 if 'alvaras' in file_name_lower or 'alvarás' in file_name_lower:
                                     logger.info(f"Arquivo possível encontrado: {possible_file}")
                                     found_file = possible_file
+                                    
+                                    # #region agent log
+                                    log_dir = Path('.cursor')
+                                    log_dir.mkdir(exist_ok=True)
+                                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                        f.write(json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'run1',
+                                            'hypothesisId': 'E',
+                                            'location': 'enel_spreadsheets.py:323',
+                                            'message': 'Arquivo encontrado por busca parcial',
+                                            'data': {
+                                                'found_file': str(found_file)
+                                            },
+                                            'timestamp': int(datetime.now().timestamp() * 1000)
+                                        }) + '\n')
+                                    # #endregion
+                                    
                                     break
             
             if not found_file:
@@ -331,6 +468,26 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                         files_in_dir = [str(f.name) for f in config.SPREADSHEETS_DIR.glob('*') if f.is_file()]
                     except Exception as e:
                         logger.error(f"Erro ao listar arquivos: {e}")
+                
+                # #region agent log
+                log_dir = Path('.cursor')
+                log_dir.mkdir(exist_ok=True)
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'A,C,D,E',
+                        'location': 'enel_spreadsheets.py:326',
+                        'message': 'Arquivo não encontrado - listando diretório',
+                        'data': {
+                            'searched_path': str(file_path_obj),
+                            'file_name_from_db': file_name,
+                            'files_in_dir': files_in_dir,
+                            'spreadsheets_dir': str(config.SPREADSHEETS_DIR)
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+                # #endregion
                 
                 return jsonify({
                     'error': f'Arquivo não encontrado: {file_path_obj}',
@@ -343,6 +500,24 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 }), 404
             
             file_path_obj = found_file
+            
+            # #region agent log
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A,C',
+                    'location': 'enel_spreadsheets.py:345',
+                    'message': 'Arquivo encontrado via busca alternativa',
+                    'data': {
+                        'final_file_path': str(file_path_obj),
+                        'exists': file_path_obj.exists() if file_path_obj else False
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
         
         # Obter anos da query string
         years_param = request.args.get('years', '')
