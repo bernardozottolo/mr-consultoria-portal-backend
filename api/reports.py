@@ -330,12 +330,46 @@ def generate_pdf(client_id):
     # Remover 'images/' do logo_path se existir e construir caminho completo
     client_logo_filename = client_dict['logo_path'].replace('images/', '').replace('static/images/', '')
     client_logo_path = str(images_dir / client_logo_filename)
+    
+    # Se o logo do cliente não existir, tentar caminhos alternativos
+    if not os.path.exists(client_logo_path):
+        # Tentar com diferentes variações do nome
+        alt_paths = [
+            str(images_dir / 'enel-logo.png'),
+            str(images_dir / 'ENEL-logo.png'),
+            str(images_dir / 'enel_logo.png'),
+            str(images_dir / 'ENEL_logo.png'),
+        ]
+        for alt_path in alt_paths:
+            if os.path.exists(alt_path):
+                client_logo_path = alt_path
+                logger.info(f"Logo encontrado em caminho alternativo: {client_logo_path}")
+                break
+    
     # Log de caminhos para debug
     logger.info(f"Procurando imagens em: {images_dir}")
+    logger.info(f"Logo do cliente - Caminho: {client_logo_path}, Existe: {os.path.exists(client_logo_path)}")
     
     # Converter para base64 (apenas logos, sem background)
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
+    
+    # Se ainda não encontrou o logo do cliente, tentar buscar do frontend
+    if not client_logo_base64:
+        # Tentar caminho relativo ao frontend
+        frontend_images_dir = ROOT_DIR.parent / 'portal-frontend' / 'images'
+        frontend_client_logo_path = str(frontend_images_dir / client_logo_filename)
+        if os.path.exists(frontend_client_logo_path):
+            client_logo_base64 = get_image_base64(frontend_client_logo_path)
+            logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
+        else:
+            # Tentar também variações do nome no frontend
+            for alt_name in ['enel-logo.png', 'ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png']:
+                alt_frontend_path = str(frontend_images_dir / alt_name)
+                if os.path.exists(alt_frontend_path):
+                    client_logo_base64 = get_image_base64(alt_frontend_path)
+                    logger.info(f"Logo encontrado no frontend (alternativo): {alt_frontend_path}")
+                    break
     
     # Log para debug
     logger.info(f"Imagens carregadas - MR Logo: {len(mr_logo_base64) > 0}, Client Logo: {len(client_logo_base64) > 0}")

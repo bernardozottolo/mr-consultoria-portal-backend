@@ -5,7 +5,7 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 1.5cm;
+            margin: 1cm;
             @top-center {
                 content: "";
             }
@@ -25,26 +25,27 @@
             justify-content: space-between;
             align-items: center;
             background: white;
-            padding: 20px 30px;
+            padding: 8px 20px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            margin-top: 0;
         }
         
         .header-logos img {
-            max-height: 60px;
+            max-height: 50px;
             width: auto;
         }
         
         .report-page {
             page-break-after: always;
-            padding: 40px;
+            padding: 20px;
             text-align: center;
         }
         
         .report-title {
             color: #2f84a8;
-            margin: 40px 0;
+            margin: 20px 0;
             padding: 0;
             text-align: center;
             font-size: 2.5em;
@@ -52,13 +53,13 @@
         
         .legalizacoes-page {
             page-break-before: always;
-            padding: 40px;
+            padding: 20px;
             text-align: center;
         }
         
         .legalizacoes-title {
             color: #2f84a8;
-            margin: 40px 0;
+            margin: 20px 0;
             padding: 0;
             text-align: center;
             font-size: 2.5em;
@@ -66,13 +67,13 @@
         
         .regional-page {
             page-break-before: always;
-            padding: 40px;
+            padding: 20px;
             text-align: center;
         }
         
         .regional-title {
             color: #2f84a8;
-            margin: 40px 0;
+            margin: 20px 0;
             padding: 0;
             text-align: center;
             font-size: 2.5em;
@@ -80,13 +81,13 @@
         
         .visao-geral-page {
             page-break-before: always;
-            padding: 40px;
+            padding: 20px;
             text-align: center;
         }
         
         .visao-geral-title {
             color: #2f84a8;
-            margin: 40px 0;
+            margin: 15px 0;
             padding: 0;
             text-align: center;
             font-size: 2.5em;
@@ -139,7 +140,7 @@
         
         .comments-section {
             page-break-before: always;
-            padding: 40px;
+            padding: 20px;
             background: white;
         }
         
@@ -147,10 +148,10 @@
             color: #2f84a8;
             background-color: #2f84a8;
             color: white;
-            padding: 15px 20px;
+            padding: 10px 15px;
             border-radius: 8px 8px 0 0;
             margin: 0;
-            font-size: 1.5em;
+            font-size: 1.3em;
             font-weight: bold;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
@@ -160,7 +161,7 @@
             border: 1px solid #e0e0e0;
             border-top: none;
             border-radius: 0 0 8px 8px;
-            padding: 20px 30px;
+            padding: 15px 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
@@ -301,10 +302,10 @@
             </table>
         </div>
         
-        <!-- Seção de Comentários dentro da página 4 -->
+        <!-- Seção de Comentários dentro da página 4 (sem quebra de página) -->
         {% if comments %}
-        <div style="margin-top: 40px;">
-            <h2 class="comments-title" style="margin-top: 30px;">Comentários</h2>
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
             <div class="comments-content">
                 <ul>
                     {% for comment in comments %}
