@@ -204,3 +204,225 @@ def get_enel_spreadsheet_info(spreadsheet_name):
 def get_required_spreadsheets():
     """Retorna lista de planilhas necessárias para o relatório Enel"""
     return jsonify({'required_spreadsheets': ENEL_REQUIRED_SPREADSHEETS}), 200
+
+
+@enel_spreadsheets_bp.route('/<spreadsheet_name>/data', methods=['GET'])
+@login_required
+def get_enel_spreadsheet_data(spreadsheet_name):
+    """
+    Obtém dados processados de uma planilha específica do Enel
+    Processa dados para criar estrutura hierárquica de estatísticas
+    """
+    try:
+        from .spreadsheet_files import read_spreadsheet_file
+        
+        # Buscar informações da planilha
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT file_path, sheet_name, status_column
+            FROM enel_spreadsheets
+            WHERE spreadsheet_name = ?
+        ''', (spreadsheet_name,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        if not result:
+            return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
+        
+        file_path = result['file_path']
+        sheet_name = result['sheet_name']
+        status_column = result['status_column'] or 'Relatório Status detalhado'
+        
+        # Obter anos da query string
+        years_param = request.args.get('years', '')
+        if years_param:
+            try:
+                years = [int(y.strip()) for y in years_param.split(',') if y.strip()]
+            except ValueError:
+                years = []
+        else:
+            # Usar anos padrão baseado em report_year_start e report_year_end
+            from datetime import datetime
+            report_year_start = request.args.get('report_year_start', type=int) or 2024
+            report_year_end = request.args.get('report_year_end', type=int) or datetime.now().year
+            years = list(range(report_year_start, report_year_end + 1))
+        
+        if not years:
+            years = [2024, 2025]  # Fallback
+        
+        # Ler arquivo
+        sheet_data = read_spreadsheet_file(
+            file_path=file_path,
+            sheet_name=sheet_name
+        )
+        
+        # Processar dados para estrutura hierárquica
+        processed_data = process_enel_legalizacao_data(
+            data=sheet_data,
+            status_column=status_column,
+            years=years
+        )
+        
+        return jsonify(processed_data), 200
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar dados da planilha: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Erro ao buscar dados: {str(e)}'}), 500
+
+
+def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -> dict:
+    """
+    Processa dados da planilha para criar estrutura hierárquica:
+    - Total demandado (total de registros)
+    - Concluídos (status = "Concluído")
+    - Alvarás em andamento (outros status como subcategorias)
+    """
+    headers = data.get('headers', [])
+    rows = data.get('values', [])
+    
+    if not headers or not rows:
+        return {
+            'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+            'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+            'em_andamento': {
+                'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                'subcategorias': []
+            }
+        }
+    
+    # Encontrar índice da coluna de status
+    try:
+        status_col_idx = headers.index(status_column)
+    except ValueError:
+        logger.error(f"Coluna '{status_column}' não encontrada. Colunas disponíveis: {headers}")
+        raise ValueError(f"Coluna '{status_column}' não encontrada")
+    
+    # Encontrar índices das colunas de anos (procurar por padrões como "Acionados em 2024", "2024", etc.)
+    year_col_indices = {}
+    for year in years:
+        # Tentar diferentes padrões de nome de coluna
+        patterns = [
+            f"Acionados em {year}",
+            f"Acionados em {year}",
+            str(year),
+            f"{year}"
+        ]
+        for pattern in patterns:
+            try:
+                year_col_indices[year] = headers.index(pattern)
+                break
+            except ValueError:
+                continue
+        if year not in year_col_indices:
+            # Se não encontrou, tentar procurar colunas que contenham o ano
+            for idx, header in enumerate(headers):
+                if str(year) in str(header) and idx != status_col_idx:
+                    year_col_indices[year] = idx
+                    break
+    
+    # Processar linhas
+    status_counts = {}
+    total_by_year = {year: 0 for year in years}
+    total_all = 0
+    
+    for row in rows:
+        if len(row) <= status_col_idx:
+            continue
+        
+        status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
+        if not status_value:
+            continue
+        
+        # Normalizar status (case-insensitive, remover espaços extras)
+        status_normalized = ' '.join(status_value.split()).lower()
+        
+        if status_normalized not in status_counts:
+            status_counts[status_normalized] = {
+                'original': status_value,  # Manter original para exibição
+                'years': {year: 0 for year in years},
+                'total': 0
+            }
+        
+        # Processar valores por ano
+        row_total = 0
+        for year in years:
+            if year in year_col_indices:
+                col_idx = year_col_indices[year]
+                if col_idx < len(row) and row[col_idx]:
+                    try:
+                        value_str = str(row[col_idx]).strip().replace(',', '').replace('.', '')
+                        value = int(value_str) if value_str else 0
+                        status_counts[status_normalized]['years'][year] += value
+                        total_by_year[year] += value
+                        row_total += value
+                    except (ValueError, TypeError):
+                        # Se não conseguir converter, tentar contar como 1 se houver algum valor
+                        if str(row[col_idx]).strip():
+                            status_counts[status_normalized]['years'][year] += 1
+                            total_by_year[year] += 1
+                            row_total += 1
+            else:
+                # Se não encontrou coluna específica, contar linha como 1
+                status_counts[status_normalized]['years'][year] += 1
+                total_by_year[year] += 1
+                row_total += 1
+        
+        # Total geral (soma de todos os anos ou contagem de linhas)
+        if row_total > 0:
+            status_counts[status_normalized]['total'] += row_total
+            total_all += row_total
+        else:
+            # Se não encontrou valores, contar como 1 linha
+            status_counts[status_normalized]['total'] += 1
+            total_all += 1
+    
+    # Separar Concluídos e outros status
+    concluidos_normalized = 'concluído'
+    concluidos_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
+    em_andamento_subcategorias = []
+    
+    for status_norm, status_info in status_counts.items():
+        if concluidos_normalized in status_norm:
+            # É concluído
+            for year in years:
+                concluidos_data['years'][year] += status_info['years'][year]
+            concluidos_data['total'] += status_info['total']
+        else:
+            # É subcategoria de "Alvarás em andamento"
+            subcat = {
+                'name': status_info['original'],
+                'years': status_info['years'].copy(),
+                'total': status_info['total'],
+                'percentage': 0.0
+            }
+            em_andamento_subcategorias.append(subcat)
+    
+    # Calcular total de "Alvarás em andamento"
+    em_andamento_total = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
+    for subcat in em_andamento_subcategorias:
+        for year in years:
+            em_andamento_total['years'][year] += subcat['years'][year]
+        em_andamento_total['total'] += subcat['total']
+    
+    # Calcular percentuais
+    if total_all > 0:
+        concluidos_data['percentage'] = (concluidos_data['total'] / total_all) * 100
+        em_andamento_total['percentage'] = (em_andamento_total['total'] / total_all) * 100
+        for subcat in em_andamento_subcategorias:
+            subcat['percentage'] = (subcat['total'] / total_all) * 100
+    
+    return {
+        'total_demandado': {
+            'years': total_by_year.copy(),
+            'total': total_all,
+            'percentage': 100.0
+        },
+        'concluidos': concluidos_data,
+        'em_andamento': {
+            'total': em_andamento_total,
+            'subcategorias': em_andamento_subcategorias
+        },
+        'years': years
+    }
