@@ -297,11 +297,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # #endregion
         
         file_path = result_dict['file_path']
-        # Usar 'ALUF 2025' como padrão se não especificado (primeira aba)
-        sheet_name = result_dict['sheet_name'] if result_dict['sheet_name'] else 'ALUF 2025'
+        # Sempre usar a primeira aba (ignorar o nome salvo no banco)
         status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
         
-        logger.info(f"Usando planilha: {spreadsheet_name}, aba: {sheet_name}, coluna: {status_column}")
+        logger.info(f"Usando planilha: {spreadsheet_name}, primeira aba (automática), coluna: {status_column}")
         
         # Verificar se o arquivo existe
         # Converter para Path se necessário
@@ -568,10 +567,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     logger.info(f"Arquivos similares encontrados: {[str(f) for f in possible_files]}")
                     # Tentar usar o primeiro arquivo encontrado
                     file_path_obj = possible_files[0]
-                    logger.info(f"Tentando usar arquivo: {file_path_obj}")
+                    logger.info(f"Tentando usar arquivo: {file_path_obj} (primeira aba)")
                     sheet_data = read_spreadsheet_file(
                         file_path=str(file_path_obj),
-                        sheet_name=sheet_name
+                        sheet_name=None  # None = primeira aba automaticamente
                     )
                 else:
                     return jsonify({
