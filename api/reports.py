@@ -303,6 +303,26 @@ def generate_pdf(client_id):
     
     client_dict = dict(client)
     
+    # #region agent log
+    log_dir = Path('.cursor')
+    log_dir.mkdir(exist_ok=True)
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A,B,C',
+            'location': 'reports.py:304',
+            'message': 'Dados do cliente obtidos do banco',
+            'data': {
+                'client_id': client_id,
+                'client_id_lower': client_id.lower(),
+                'client_dict': client_dict,
+                'logo_path_from_db': client_dict.get('logo_path')
+            },
+            'timestamp': int(dt.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
+    
     # Preparar paths das imagens e converter para base64 (WeasyPrint funciona melhor com base64)
     images_dir = config.IMAGES_DIR
     
@@ -330,30 +350,89 @@ def generate_pdf(client_id):
     # Remover 'images/' do logo_path se existir e construir caminho completo
     client_logo_filename = client_dict['logo_path'].replace('images/', '').replace('static/images/', '')
     
-    # Para ENEL, sempre buscar no frontend primeiro (caminho exato informado pelo usuário)
-    frontend_images_dir = ROOT_DIR.parent / 'portal-frontend' / 'images'
-    frontend_enel_path = str(frontend_images_dir / 'enel-logo.png')
+    # Import datetime para logs
+    from datetime import datetime as dt
     
-    if client_id.lower() == 'enel':
-        # Sempre usar logo do frontend para ENEL
-        if os.path.exists(frontend_enel_path):
+    # #region agent log
+    log_dir = Path('.cursor')
+    log_dir.mkdir(exist_ok=True)
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A,B,C',
+            'location': 'reports.py:351',
+            'message': 'Dados do cliente obtidos do banco',
+            'data': {
+                'client_id': client_id,
+                'client_id_lower': client_id.lower(),
+                'client_dict': client_dict,
+                'logo_path_from_db': client_dict.get('logo_path'),
+                'client_nome': client_dict.get('nome')
+            },
+            'timestamp': int(dt.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
+    
+    # Para ENEL, sempre buscar no frontend primeiro (caminho exato informado pelo usuário)
+    # Tentar múltiplos caminhos possíveis para o frontend
+    possible_frontend_dirs = [
+        ROOT_DIR.parent / 'portal-frontend' / 'images',  # Caminho padrão
+        ROOT_DIR / 'portal-frontend' / 'images',  # Alternativa
+        Path('/app') / 'portal-frontend' / 'images',  # Caminho absoluto no container
+    ]
+    
+    frontend_enel_path = None
+    frontend_images_dir = None
+    
+    for frontend_dir in possible_frontend_dirs:
+        enel_path = frontend_dir / 'enel-logo.png'
+        if os.path.exists(str(enel_path)):
+            frontend_enel_path = str(enel_path)
+            frontend_images_dir = frontend_dir
+            logger.info(f"Diretório frontend encontrado: {frontend_dir}, Logo ENEL: {frontend_enel_path}")
+            break
+    
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A,B,C',
+            'location': 'reports.py:380',
+            'message': 'Verificando caminhos de logo',
+            'data': {
+                'client_id': client_id,
+                'client_id_lower': client_id.lower(),
+                'is_enel': client_id.lower() == 'enel' or client_dict.get('nome', '').upper() == 'ENEL',
+                'frontend_images_dir': str(frontend_images_dir) if frontend_images_dir else None,
+                'frontend_enel_path': frontend_enel_path,
+                'frontend_enel_exists': os.path.exists(frontend_enel_path) if frontend_enel_path else False,
+                'images_dir': str(images_dir),
+                'client_logo_filename': client_logo_filename,
+                'backend_logo_path': str(images_dir / client_logo_filename),
+                'backend_logo_exists': os.path.exists(str(images_dir / client_logo_filename)),
+                'root_dir': str(ROOT_DIR),
+                'root_dir_parent': str(ROOT_DIR.parent)
+            },
+            'timestamp': int(dt.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
+    
+    # Determinar caminho do logo do cliente
+    if client_id.lower() == 'enel' or client_dict.get('nome', '').upper() == 'ENEL':
+        # Sempre usar logo do frontend para ENEL se encontrado
+        if frontend_enel_path and os.path.exists(frontend_enel_path):
             client_logo_path = frontend_enel_path
             logger.info(f"Logo ENEL encontrado no frontend: {frontend_enel_path}")
         else:
-            # Fallback para backend se não encontrar no frontend
-            client_logo_path = str(images_dir / client_logo_filename)
-            logger.warning(f"Logo ENEL não encontrado no frontend, tentando backend: {client_logo_path}")
-    else:
-        # Para outros clientes, tentar backend primeiro
-        client_logo_path = str(images_dir / client_logo_filename)
-        if not os.path.exists(client_logo_path):
-            # Se não encontrou no backend, tentar no frontend
-            frontend_client_logo_path = str(frontend_images_dir / client_logo_filename)
-            if os.path.exists(frontend_client_logo_path):
-                client_logo_path = frontend_client_logo_path
-                logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
+            # Tentar backend como fallback
+            backend_path = str(images_dir / client_logo_filename)
+            if os.path.exists(backend_path):
+                client_logo_path = backend_path
+                logger.warning(f"Logo ENEL não encontrado no frontend, usando backend: {backend_path}")
             else:
-                # Tentar variações do nome
+                # Último recurso: tentar variações no backend
                 alt_paths = [
                     str(images_dir / 'enel-logo.png'),
                     str(images_dir / 'ENEL-logo.png'),
@@ -363,8 +442,21 @@ def generate_pdf(client_id):
                 for alt_path in alt_paths:
                     if os.path.exists(alt_path):
                         client_logo_path = alt_path
-                        logger.info(f"Logo encontrado em caminho alternativo: {client_logo_path}")
+                        logger.info(f"Logo ENEL encontrado em caminho alternativo: {client_logo_path}")
                         break
+                else:
+                    # Se não encontrou nada, usar o caminho do frontend mesmo que não exista (para debug)
+                    client_logo_path = frontend_enel_path if frontend_enel_path else str(images_dir / client_logo_filename)
+                    logger.error(f"Logo ENEL não encontrado em nenhum lugar! Tentando: {client_logo_path}")
+    else:
+        # Para outros clientes, tentar backend primeiro
+        client_logo_path = str(images_dir / client_logo_filename)
+        if not os.path.exists(client_logo_path) and frontend_images_dir:
+            # Se não encontrou no backend, tentar no frontend
+            frontend_client_logo_path = str(frontend_images_dir / client_logo_filename)
+            if os.path.exists(frontend_client_logo_path):
+                client_logo_path = frontend_client_logo_path
+                logger.info(f"Logo encontrado no frontend: {frontend_client_logo_path}")
     
     # Log de caminhos para debug
     logger.info(f"Procurando imagens em: {images_dir}")
@@ -374,27 +466,55 @@ def generate_pdf(client_id):
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
     
-    # Se ainda não encontrou o logo do cliente após converter, tentar buscar do frontend
-    if not client_logo_base64 and os.path.exists(client_logo_path):
-        # Se o caminho existe mas não converteu, tentar converter novamente
-        client_logo_base64 = get_image_base64(client_logo_path)
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'C',
+            'location': 'reports.py:375',
+            'message': 'APÓS primeira tentativa de conversão',
+            'data': {
+                'client_logo_path': client_logo_path,
+                'client_logo_path_exists': os.path.exists(client_logo_path),
+                'client_logo_base64_length': len(client_logo_base64) if client_logo_base64 else 0,
+                'mr_logo_base64_length': len(mr_logo_base64) if mr_logo_base64 else 0
+            },
+            'timestamp': int(dt.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
     
-    # Se ainda não encontrou, tentar buscar do frontend diretamente
+    # Se ainda não encontrou o logo do cliente após converter, tentar buscar do frontend
     if not client_logo_base64:
-        frontend_images_dir = ROOT_DIR.parent / 'portal-frontend' / 'images'
-        # Tentar diretamente enel-logo.png (caminho exato informado pelo usuário)
-        exact_enel_path = str(frontend_images_dir / 'enel-logo.png')
-        if os.path.exists(exact_enel_path):
-            client_logo_base64 = get_image_base64(exact_enel_path)
-            logger.info(f"Logo encontrado no frontend (caminho exato): {exact_enel_path}")
-        else:
-            # Tentar também variações do nome no frontend
-            for alt_name in ['ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png', client_logo_filename]:
-                alt_frontend_path = str(frontend_images_dir / alt_name)
-                if os.path.exists(alt_frontend_path):
-                    client_logo_base64 = get_image_base64(alt_frontend_path)
-                    logger.info(f"Logo encontrado no frontend (alternativo): {alt_frontend_path}")
-                    break
+        # Tentar diretamente enel-logo.png no frontend (caminho exato informado pelo usuário)
+        if frontend_images_dir:
+            exact_enel_path = str(frontend_images_dir / 'enel-logo.png')
+            if os.path.exists(exact_enel_path):
+                client_logo_base64 = get_image_base64(exact_enel_path)
+                logger.info(f"Logo encontrado no frontend (caminho exato): {exact_enel_path}")
+                # #region agent log
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'C',
+                        'location': 'reports.py:390',
+                        'message': 'Logo encontrado no frontend - segunda tentativa',
+                        'data': {
+                            'exact_enel_path': exact_enel_path,
+                            'base64_length': len(client_logo_base64) if client_logo_base64 else 0
+                        },
+                        'timestamp': int(dt.now().timestamp() * 1000)
+                    }) + '\n')
+                # #endregion
+            else:
+                # Tentar também variações do nome no frontend
+                for alt_name in ['ENEL-logo.png', 'enel_logo.png', 'ENEL_logo.png', client_logo_filename]:
+                    alt_frontend_path = str(frontend_images_dir / alt_name)
+                    if os.path.exists(alt_frontend_path):
+                        client_logo_base64 = get_image_base64(alt_frontend_path)
+                        logger.info(f"Logo encontrado no frontend (alternativo): {alt_frontend_path}")
+                        break
     
     # Log para debug
     logger.info(f"Imagens carregadas - MR Logo: {len(mr_logo_base64) > 0}, Client Logo: {len(client_logo_base64) > 0}")
