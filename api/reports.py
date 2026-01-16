@@ -367,6 +367,29 @@ def generate_pdf(client_id):
     frontend_images_dir = None
     
     # #region agent log
+    # Listar conteúdo de /app para entender estrutura
+    app_dir_contents = []
+    if os.path.exists('/app'):
+        try:
+            app_dir_contents = [item.name for item in Path('/app').iterdir() if item.is_dir()]
+        except Exception as e:
+            app_dir_contents = [f"Erro ao listar: {str(e)}"]
+    
+    # Tentar encontrar o arquivo usando busca recursiva limitada
+    found_enel_logo_paths = []
+    search_paths = ['/app', '/app/portal-frontend', '/app/portal-frontend/images']
+    for search_path in search_paths:
+        if os.path.exists(search_path):
+            try:
+                for root, dirs, files in os.walk(search_path):
+                    if 'enel-logo.png' in files:
+                        found_enel_logo_paths.append(os.path.join(root, 'enel-logo.png'))
+                    # Limitar profundidade para não demorar muito
+                    if root.count(os.sep) - search_path.count(os.sep) > 2:
+                        dirs[:] = []
+            except Exception as e:
+                pass
+    
     with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
         f.write(json.dumps({
             'sessionId': 'debug-session',
@@ -376,11 +399,21 @@ def generate_pdf(client_id):
             'message': 'Tentando encontrar logo ENEL - listando caminhos',
             'data': {
                 'possible_paths': [str(p / 'enel-logo.png') for p in possible_frontend_dirs],
-                'paths_exist': [os.path.exists(str(p / 'enel-logo.png')) for p in possible_frontend_dirs]
+                'paths_exist': [os.path.exists(str(p / 'enel-logo.png')) for p in possible_frontend_dirs],
+                'app_dir_contents': app_dir_contents,
+                'found_enel_logo_paths': found_enel_logo_paths,
+                'root_dir': str(ROOT_DIR),
+                'root_dir_parent': str(ROOT_DIR.parent)
             },
             'timestamp': int(dt.now().timestamp() * 1000)
         }) + '\n')
     # #endregion
+    
+    # Se encontrou o arquivo na busca, usar o primeiro resultado
+    if found_enel_logo_paths:
+        frontend_enel_path = found_enel_logo_paths[0]
+        frontend_images_dir = Path(frontend_enel_path).parent
+        logger.info(f"Logo ENEL encontrado via busca recursiva: {frontend_enel_path}")
     
     for frontend_dir in possible_frontend_dirs:
         enel_path = frontend_dir / 'enel-logo.png'
