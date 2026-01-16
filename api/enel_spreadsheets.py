@@ -960,10 +960,15 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
             }
         }
     
-    # Encontrar índice da coluna de status
-    try:
-        status_col_idx = headers.index(status_column)
-    except ValueError:
+    # Encontrar índice da coluna de status (case-insensitive, com trim)
+    status_col_idx = None
+    status_column_normalized = status_column.strip().lower()
+    for idx, header in enumerate(headers):
+        if header.strip().lower() == status_column_normalized:
+            status_col_idx = idx
+            break
+    
+    if status_col_idx is None:
         logger.error(f"Coluna '{status_column}' não encontrada. Colunas disponíveis: {headers}")
         # Retornar dados vazios com informações sobre colunas disponíveis
         return {
@@ -978,49 +983,17 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
             'requested_column': status_column
         }
     
-    # Encontrar índice da coluna de datas de acionamento
-    date_column_name = 'Relatório Datas acionamentos'
+    # Encontrar índice da coluna 'ano Acionamento' (case-insensitive, com trim)
+    year_column_name = 'ano Acionamento'
+    year_col_idx = None
+    for idx, header in enumerate(headers):
+        if header.strip().lower() == year_column_name.lower():
+            year_col_idx = idx
+            break
     
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A',
-            'location': 'enel_spreadsheets.py:981',
-            'message': 'Procurando coluna de datas',
-            'data': {
-                'date_column_name': date_column_name,
-                'headers_available': headers,
-                'years_requested': years
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
-    try:
-        date_col_idx = headers.index(date_column_name)
-        
-        # #region agent log
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A',
-                'location': 'enel_spreadsheets.py:1000',
-                'message': 'Coluna de datas encontrada',
-                'data': {
-                    'date_column_name': date_column_name,
-                    'date_col_idx': date_col_idx
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
-    except ValueError:
-        logger.error(f"Coluna '{date_column_name}' não encontrada. Colunas disponíveis: {headers}")
-        # Retornar dados vazios com informações sobre colunas disponíveis
+    if year_col_idx is None:
+        logger.warning(f"Coluna '{year_column_name}' não encontrada. Colunas disponíveis: {headers}")
+        # Se não encontrar a coluna de ano, retornar dados vazios com informações
         return {
             'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
             'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
@@ -1028,72 +1001,41 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
                 'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
                 'subcategorias': []
             },
-            'warning': f"Coluna '{date_column_name}' não encontrada",
+            'warning': f"Coluna '{year_column_name}' não encontrada",
             'available_columns': headers,
-            'requested_column': date_column_name
+            'requested_year_column': year_column_name
         }
-    
-    # Função auxiliar para extrair ano de data no formato dd/mm/yyyy
-    def extract_year_from_date(date_str):
-        """Extrai o ano de uma data no formato dd/mm/yyyy"""
-        if not date_str:
-            return None
-        try:
-            # Tentar parsear formato dd/mm/yyyy
-            date_str = str(date_str).strip()
-            if '/' in date_str:
-                parts = date_str.split('/')
-                if len(parts) >= 3:
-                    year = int(parts[2])
-                    return year
-            # Tentar outros formatos comuns
-            from datetime import datetime as dt
-            # Tentar parsear como data
-            for fmt in ['%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%Y/%m/%d']:
-                try:
-                    parsed_date = dt.strptime(date_str, fmt)
-                    return parsed_date.year
-                except ValueError:
-                    continue
-            return None
-        except (ValueError, TypeError, IndexError):
-            return None
     
     # Processar linhas
     status_counts = {}
     total_by_year = {year: 0 for year in years}
     total_all = 0
     
-    # #region agent log
-    sample_dates_processed = []
-    # #endregion
-    
-    for row_idx, row in enumerate(rows):
-        if len(row) <= status_col_idx or len(row) <= date_col_idx:
+    for row in rows:
+        # Verificar se a linha tem colunas suficientes
+        if len(row) <= max(status_col_idx, year_col_idx):
             continue
         
+        # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
         if not status_value:
             continue
         
-        # Extrair ano da data de acionamento
-        date_value = row[date_col_idx].strip() if date_col_idx < len(row) else ""
-        row_year = extract_year_from_date(date_value)
+        # Obter ano da coluna 'ano Acionamento'
+        year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
+        if not year_value_str:
+            continue  # Pular linhas sem ano
         
-        # #region agent log - capturar amostras das primeiras 10 linhas
-        if row_idx < 10:
-            sample_dates_processed.append({
-                'row_idx': row_idx,
-                'date_value': date_value,
-                'extracted_year': row_year,
-                'status': status_value
-            })
-        # #endregion
-        
-        # Se o ano não está na lista de anos solicitados, ignorar ou contar como "outros"
-        # Por enquanto, vamos contar apenas se o ano estiver na lista
-        if row_year not in years:
+        # Tentar converter o ano para inteiro
+        try:
+            row_year = int(year_value_str)
+        except (ValueError, TypeError):
+            # Se não conseguir converter, pular a linha
             continue
+        
+        # Verificar se o ano está na lista de anos solicitados
+        if row_year not in years:
+            continue  # Pular anos fora do range solicitado
         
         # Normalizar status (case-insensitive, remover espaços extras)
         status_normalized = ' '.join(status_value.split()).lower()
@@ -1105,30 +1047,11 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
                 'total': 0
             }
         
-        # Contar este registro para o ano extraído da data
-        if row_year in years:
-            status_counts[status_normalized]['years'][row_year] += 1
-            total_by_year[row_year] += 1
-            status_counts[status_normalized]['total'] += 1
-            total_all += 1
-    
-    # #region agent log - resumo do processamento
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A',
-            'location': 'enel_spreadsheets.py:1095',
-            'message': 'Resumo do processamento de datas',
-            'data': {
-                'total_rows_processed': total_all,
-                'total_by_year': total_by_year,
-                'sample_dates': sample_dates_processed[:5],  # Primeiras 5 amostras
-                'status_counts_keys': list(status_counts.keys())[:10]  # Primeiros 10 status
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
+        # Contar esta linha para o ano correspondente
+        status_counts[status_normalized]['years'][row_year] += 1
+        total_by_year[row_year] += 1
+        status_counts[status_normalized]['total'] += 1
+        total_all += 1
     
     # Separar Concluídos e outros status
     concluidos_normalized = 'concluído'
