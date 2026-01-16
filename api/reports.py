@@ -213,11 +213,34 @@ def generate_pdf(client_id):
         logger.error("WeasyPrint não está disponível")
         return jsonify({'error': 'WeasyPrint não está instalado. Execute: pip install WeasyPrint>=66.0'}), 500
     
-    # Obter parâmetros de mês/ano
-    mes = request.args.get('mes', type=int)
-    ano = request.args.get('ano', type=int)
+    # Obter parâmetros de configuração do relatório
+    # report_month e report_year são os valores de referência do relatório
+    report_month = request.args.get('report_month', type=int)
+    report_year = request.args.get('report_year', type=int)
     
-    # Obter estados selecionados (padrão: CE&SP&RJ)
+    # Se não fornecidos, usar mes/ano como fallback (compatibilidade)
+    mes = report_month if report_month is not None else request.args.get('mes', type=int)
+    ano = report_year if report_year is not None else request.args.get('ano', type=int)
+    
+    # Obter anos para estatísticas
+    report_year_start = request.args.get('report_year_start', type=int)
+    report_year_end = request.args.get('report_year_end', type=int)
+    
+    # Obter categorias de legalização e regularização
+    legalizacao_param = request.args.get('legalizacao', 'CE,SP,RJ')
+    regularizacao_param = request.args.get('regularizacao', 'RJ,SP,CTEEP')
+    
+    # Processar legalização (separado por vírgula)
+    legalizacao_lista = [e.strip().upper() for e in legalizacao_param.split(',') if e.strip()]
+    if not legalizacao_lista:
+        legalizacao_lista = ['CE', 'SP', 'RJ']  # Padrão
+    
+    # Processar regularização (separado por vírgula)
+    regularizacao_lista = [e.strip().upper() for e in regularizacao_param.split(',') if e.strip()]
+    if not regularizacao_lista:
+        regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
+    
+    # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
     estados_param = request.args.get('estados', 'CE&SP&RJ')
     # Validar e limpar estados
     estados_validos = ['CE', 'SP', 'RJ']
