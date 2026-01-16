@@ -866,11 +866,66 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 raise
         
         # Processar dados para estrutura hierárquica
-        processed_data = process_enel_legalizacao_data(
-            data=sheet_data,
-            status_column=status_column,
-            years=years
-        )
+        try:
+            # #region agent log
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A',
+                    'location': 'enel_spreadsheets.py:869',
+                    'message': 'ANTES de processar dados - verificando colunas',
+                    'data': {
+                        'status_column': status_column,
+                        'headers_available': sheet_data.get('headers', []),
+                        'rows_count': len(sheet_data.get('values', []))
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
+            
+            processed_data = process_enel_legalizacao_data(
+                data=sheet_data,
+                status_column=status_column,
+                years=years
+            )
+        except ValueError as ve:
+            # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
+            if "não encontrada" in str(ve):
+                headers = sheet_data.get('headers', [])
+                
+                # #region agent log
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'A',
+                        'location': 'enel_spreadsheets.py:883',
+                        'message': 'Coluna não encontrada - retornando dados vazios com info',
+                        'data': {
+                            'requested_column': status_column,
+                            'available_columns': headers,
+                            'error': str(ve)
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+                # #endregion
+                
+                processed_data = {
+                    'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+                    'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                    'em_andamento': {
+                        'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                        'subcategorias': []
+                    },
+                    'warning': f"Coluna '{status_column}' não encontrada",
+                    'available_columns': headers,
+                    'requested_column': status_column
+                }
+            else:
+                raise
         
         return jsonify(processed_data), 200
         
@@ -910,7 +965,18 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
         status_col_idx = headers.index(status_column)
     except ValueError:
         logger.error(f"Coluna '{status_column}' não encontrada. Colunas disponíveis: {headers}")
-        raise ValueError(f"Coluna '{status_column}' não encontrada")
+        # Retornar dados vazios com informações sobre colunas disponíveis
+        return {
+            'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+            'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+            'em_andamento': {
+                'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                'subcategorias': []
+            },
+            'warning': f"Coluna '{status_column}' não encontrada",
+            'available_columns': headers,
+            'requested_column': status_column
+        }
     
     # Encontrar índices das colunas de anos (procurar por padrões como "Acionados em 2024", "2024", etc.)
     year_col_indices = {}
