@@ -84,7 +84,29 @@ def upload_enel_spreadsheet():
         file_path = config.SPREADSHEETS_DIR / safe_filename
         file.save(str(file_path))
         
-        logger.info(f"Arquivo salvo: {file_path} para planilha Enel: {spreadsheet_name}")
+        # Validar que o arquivo foi salvo corretamente
+        if not file_path.exists():
+            logger.error(f"ERRO: Arquivo não foi salvo corretamente em {file_path}")
+            return jsonify({'error': 'Erro ao salvar arquivo'}), 500
+        
+        logger.info(f"Arquivo salvo e validado: {file_path} para planilha Enel: {spreadsheet_name}")
+        
+        # Testar acesso ao arquivo imediatamente após salvar
+        try:
+            from .spreadsheet_files import read_spreadsheet_file
+            # Tentar ler a primeira aba do arquivo para validar acesso
+            test_data = read_spreadsheet_file(
+                file_path=str(file_path),
+                sheet_name=None  # Primeira aba
+            )
+            if test_data is None or len(test_data) == 0:
+                logger.warning(f"Arquivo salvo mas parece estar vazio ou inacessível: {file_path}")
+            else:
+                logger.info(f"Arquivo acessível e legível: {file_path} ({len(test_data)} linhas lidas)")
+        except Exception as e:
+            logger.error(f"ERRO ao testar acesso ao arquivo salvo: {e}")
+            # Não falhar o upload, mas registrar o erro
+            logger.warning(f"Arquivo salvo em {file_path} mas houve erro ao testar acesso: {str(e)}")
         
         # Salvar informações no banco de dados
         conn = get_db_connection()
@@ -385,7 +407,21 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 }) + '\n')
             # #endregion
             
-            if file_name and config.SPREADSHEETS_DIR.exists():
+            # PRIMEIRO: Tentar construir o nome esperado usando a mesma lógica do upload
+            if config.SPREADSHEETS_DIR.exists():
+                # Usar a mesma lógica do upload para construir o nome esperado
+                safe_spreadsheet_id = spreadsheet_name.replace(' ', '_').replace('/', '_').replace('\\', '_').replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A')
+                # Tentar extensões comuns
+                for ext in ['.xlsx', '.xls']:
+                    expected_filename = f"ENEL_{safe_spreadsheet_id}{ext}"
+                    expected_path = config.SPREADSHEETS_DIR / expected_filename
+                    if expected_path.exists():
+                        logger.info(f"Arquivo encontrado pelo nome esperado (lógica upload): {expected_path}")
+                        found_file = expected_path
+                        break
+            
+            # SEGUNDO: Tentar pelo file_name do banco de dados
+            if not found_file and file_name and config.SPREADSHEETS_DIR.exists():
                 # Tentar encontrar por nome exato
                 alternative_path = config.SPREADSHEETS_DIR / file_name
                 
@@ -475,35 +511,66 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                                     break
             
             if not found_file:
-                # Listar arquivos no diretório para debug
-                files_in_dir = []
+                # ÚLTIMA TENTATIVA: Procurar qualquer arquivo ENEL_ que contenha palavras-chave relacionadas
                 if config.SPREADSHEETS_DIR.exists():
                     try:
-                        files_in_dir = [str(f.name) for f in config.SPREADSHEETS_DIR.glob('*') if f.is_file()]
+                        all_enel_files = [f for f in config.SPREADSHEETS_DIR.glob('ENEL_*') if f.is_file()]
+                        # Normalizar nome da planilha para busca
+                        spreadsheet_name_lower = spreadsheet_name.lower()
+                        # Palavras-chave específicas para cada tipo de planilha
+                        keywords_map = {
+                            'ceara': ['ceara', 'ceará', 'cear'],
+                            'alvaras': ['alvaras', 'alvarás', 'alvara'],
+                            'legalizacao': ['legalizacao', 'legalização', 'legaliza'],
+                            'regularizacao': ['regularizacao', 'regularização', 'regulariza']
+                        }
+                        
+                        # Identificar palavras-chave relevantes para esta planilha
+                        relevant_keywords = []
+                        for key, variants in keywords_map.items():
+                            if any(variant in spreadsheet_name_lower for variant in variants):
+                                relevant_keywords.extend(variants)
+                        
+                        # Procurar arquivo que contenha essas palavras-chave
+                        for enel_file in all_enel_files:
+                            file_name_lower = enel_file.name.lower()
+                            if any(keyword in file_name_lower for keyword in relevant_keywords):
+                                logger.info(f"Arquivo encontrado por palavras-chave finais: {enel_file}")
+                                found_file = enel_file
+                                break
                     except Exception as e:
-                        logger.error(f"Erro ao listar arquivos: {e}")
+                        logger.error(f"Erro na busca final por palavras-chave: {e}")
                 
-                # #region agent log
-                log_dir = Path('.cursor')
-                log_dir.mkdir(exist_ok=True)
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'A,C,D,E',
-                        'location': 'enel_spreadsheets.py:326',
-                        'message': 'Arquivo não encontrado - listando diretório',
-                        'data': {
-                            'searched_path': str(file_path_obj),
-                            'file_name_from_db': file_name,
-                            'files_in_dir': files_in_dir,
-                            'spreadsheets_dir': str(config.SPREADSHEETS_DIR)
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-                # #endregion
-                
-                return jsonify({
+                # Se ainda não encontrou, listar arquivos no diretório para debug
+                if not found_file:
+                    files_in_dir = []
+                    if config.SPREADSHEETS_DIR.exists():
+                        try:
+                            files_in_dir = [str(f.name) for f in config.SPREADSHEETS_DIR.glob('*') if f.is_file()]
+                        except Exception as e:
+                            logger.error(f"Erro ao listar arquivos: {e}")
+                    
+                    # #region agent log
+                    log_dir = Path('.cursor')
+                    log_dir.mkdir(exist_ok=True)
+                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            'sessionId': 'debug-session',
+                            'runId': 'run1',
+                            'hypothesisId': 'A,C,D,E',
+                            'location': 'enel_spreadsheets.py:326',
+                            'message': 'Arquivo não encontrado - listando diretório',
+                            'data': {
+                                'searched_path': str(file_path_obj),
+                                'file_name_from_db': file_name,
+                                'files_in_dir': files_in_dir,
+                                'spreadsheets_dir': str(config.SPREADSHEETS_DIR)
+                            },
+                            'timestamp': int(datetime.now().timestamp() * 1000)
+                        }) + '\n')
+                    # #endregion
+                    
+                    return jsonify({
                     'error': f'Arquivo não encontrado: {file_path_obj}',
                     'original_path': str(file_path),
                     'searched_path': str(file_path_obj),
