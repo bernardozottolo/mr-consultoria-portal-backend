@@ -201,6 +201,67 @@
         <h1 class="legalizacoes-title">
             Legalizações - {{ estados }}
         </h1>
+        
+        {% if legalizacao_ce_data and 'CE' in legalizacao_lista %}
+        <!-- Tabela de Legalização CE -->
+        <div class="regional-data">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        {% for year in years %}
+                        <th>{{ year }}</th>
+                        {% endfor %}
+                        <th>Total</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Total Demandado -->
+                    <tr class="row-main">
+                        <td><strong>Total Demandado</strong></td>
+                        {% for year in years %}
+                        <td>{{ legalizacao_ce_data.total_demandado.years.get(year, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_ce_data.total_demandado.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_ce_data.total_demandado.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Concluídos -->
+                    <tr class="row-main">
+                        <td><strong>Concluídos</strong></td>
+                        {% for year in years %}
+                        <td>{{ legalizacao_ce_data.concluidos.years.get(year, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_ce_data.concluidos.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_ce_data.concluidos.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Alvarás em Andamento - Total -->
+                    <tr class="row-main">
+                        <td><strong>Alvarás em Andamento</strong></td>
+                        {% for year in years %}
+                        <td>{{ legalizacao_ce_data.em_andamento.total.years.get(year, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_ce_data.em_andamento.total.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_ce_data.em_andamento.total.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Subcategorias de Alvarás em Andamento -->
+                    {% for subcat in legalizacao_ce_data.em_andamento.subcategorias %}
+                    <tr class="row-sub">
+                        <td>{{ subcat.name }}</td>
+                        {% for year in years %}
+                        <td>{{ subcat.years.get(year, 0) }}</td>
+                        {% endfor %}
+                        <td>{{ subcat.total }}</td>
+                        <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
     
     <!-- Páginas de Regionais (condicionais) -->

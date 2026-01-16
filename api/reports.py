@@ -226,6 +226,16 @@ def generate_pdf(client_id):
     report_year_start = request.args.get('report_year_start', type=int)
     report_year_end = request.args.get('report_year_end', type=int)
     
+    # Calcular anos baseado em report_year_start e report_year_end
+    if report_year_start is None:
+        report_year_start = 2024  # Padrão
+    if report_year_end is None:
+        from datetime import datetime
+        report_year_end = datetime.now().year  # Padrão: ano atual
+    
+    # Gerar lista de anos
+    years = list(range(report_year_start, report_year_end + 1))
+    
     # Obter categorias de legalização e regularização
     legalizacao_param = request.args.get('legalizacao', 'CE,SP,RJ')
     regularizacao_param = request.args.get('regularizacao', 'RJ,SP,CTEEP')
@@ -248,16 +258,6 @@ def generate_pdf(client_id):
     if not estados_lista:
         estados_lista = ['CE', 'SP', 'RJ']  # Fallback para padrão
     estados_str = '|'.join(estados_lista)  # Usar | para exibição no PDF
-    
-    # Obter anos selecionados
-    years_param = request.args.get('years', '')
-    if years_param:
-        try:
-            years = [int(y.strip()) for y in years_param.split(',') if y.strip()]
-        except ValueError:
-            years = []
-    else:
-        years = []
     
     # Obter nomes de status customizados (JSON)
     status_names_param = request.args.get('status_names', '{}')
@@ -342,8 +342,33 @@ def generate_pdf(client_id):
     logger.info(f"Caminhos - MR: {mr_logo_path}, Client: {client_logo_path}")
     logger.info(f"Arquivos existem - MR: {os.path.exists(mr_logo_path)}, Client: {os.path.exists(client_logo_path)}")
     
-    # Não buscar dados das planilhas - apenas títulos
-    # Renderizar template HTML (versão simplificada - apenas títulos)
+    # Buscar dados de Legalização CE se CE estiver na lista
+    legalizacao_ce_data = None
+    if 'CE' in legalizacao_lista:
+        try:
+            from .enel_spreadsheets import get_enel_spreadsheet_data
+            # Criar contexto de request fake para chamar a função
+            spreadsheet_name = 'Base Ceara Alvarás de funcionamento'
+            years_str = ','.join(map(str, years))
+            with current_app.test_request_context(
+                path=f'/api/enel-spreadsheets/{spreadsheet_name}/data',
+                query_string=f'years={years_str}',
+                headers={'Authorization': request.headers.get('Authorization', '')}
+            ):
+                # Chamar a função diretamente
+                result = get_enel_spreadsheet_data(spreadsheet_name)
+                if hasattr(result, 'get_json'):
+                    legalizacao_ce_data = result.get_json()
+                elif isinstance(result, tuple) and len(result) > 0:
+                    # Se retornar (jsonify(...), status_code)
+                    if result[1] == 200:  # Status code 200
+                        legalizacao_ce_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                    else:
+                        logger.warning(f"Erro ao buscar dados CE: status {result[1]}")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
+    
+    # Renderizar template HTML
     html_content = render_template(
         'report_pdf.html',
         client_name=client_dict['nome'],
@@ -351,6 +376,9 @@ def generate_pdf(client_id):
         year=ano,
         estados=estados_str,
         estados_lista=estados_lista,
+        legalizacao_lista=legalizacao_lista,
+        legalizacao_ce_data=legalizacao_ce_data,
+        years=years,
         comments=comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
