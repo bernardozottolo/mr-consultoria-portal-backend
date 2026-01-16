@@ -257,7 +257,7 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT file_path, sheet_name, status_column
+            SELECT file_path, file_name, sheet_name, status_column
             FROM enel_spreadsheets
             WHERE spreadsheet_name = ?
         ''', (spreadsheet_name,))
@@ -268,9 +268,15 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         if not result:
             return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
         
-        file_path = result['file_path']
-        sheet_name = result['sheet_name']
-        status_column = result['status_column'] or 'Relatório Status detalhado'
+        # Converter Row para dict para facilitar acesso
+        result_dict = dict(result)
+        
+        file_path = result_dict['file_path']
+        # Usar 'ALUF 2025' como padrão se não especificado (primeira aba)
+        sheet_name = result_dict['sheet_name'] if result_dict['sheet_name'] else 'ALUF 2025'
+        status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
+        
+        logger.info(f"Usando planilha: {spreadsheet_name}, aba: {sheet_name}, coluna: {status_column}")
         
         # Verificar se o arquivo existe
         # Converter para Path se necessário
@@ -295,7 +301,7 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             logger.info(f"SPREADSHEETS_DIR: {config.SPREADSHEETS_DIR}")
             
             # Tentar encontrar o arquivo pelo nome no diretório de planilhas
-            file_name = result.get('file_name', '')
+            file_name = result_dict.get('file_name', '')
             found_file = None
             
             if file_name and config.SPREADSHEETS_DIR.exists():
@@ -365,7 +371,7 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         except FileNotFoundError as e:
             logger.error(f"Arquivo não encontrado: {e}")
             # Tentar buscar por nome similar no diretório
-            file_name = result.get('file_name', '')
+            file_name = result_dict.get('file_name', '')
             if file_name:
                 # Procurar arquivos que contenham parte do nome
                 possible_files = list(config.SPREADSHEETS_DIR.glob(f'*{file_name}*'))
