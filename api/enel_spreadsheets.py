@@ -69,14 +69,16 @@ def upload_enel_spreadsheet():
         sheet_name = request.form.get('sheet_name', None)
         status_column = request.form.get('status_column', 'Relatório Status detalhado')
         
-        # Criar nome seguro para o arquivo
-        filename = secure_filename(file.filename)
-        # Criar nome único baseado no nome da planilha
-        file_ext = Path(filename).suffix
-        file_base = Path(filename).stem
-        # Usar nome da planilha para criar identificador único
-        safe_spreadsheet_id = spreadsheet_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-        safe_filename = f"ENEL_{safe_spreadsheet_id}_{file_base}{file_ext}"
+        # Criar nome seguro para o arquivo baseado apenas no nome da planilha
+        # Usar nome da planilha para criar identificador único (evitar duplicação)
+        safe_spreadsheet_id = spreadsheet_name.replace(' ', '_').replace('/', '_').replace('\\', '_').replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A')
+        
+        # Obter extensão do arquivo original
+        original_filename = secure_filename(file.filename)
+        file_ext = Path(original_filename).suffix if '.' in original_filename else '.xlsx'
+        
+        # Criar nome único usando apenas o nome da planilha (evita duplicação)
+        safe_filename = f"ENEL_{safe_spreadsheet_id}{file_ext}"
         
         # Salvar arquivo
         file_path = config.SPREADSHEETS_DIR / safe_filename
@@ -110,13 +112,13 @@ def upload_enel_spreadsheet():
                 UPDATE enel_spreadsheets 
                 SET file_path = ?, file_name = ?, sheet_name = ?, status_column = ?, uploaded_at = CURRENT_TIMESTAMP
                 WHERE spreadsheet_name = ?
-            ''', (str(file_path), filename, sheet_name, status_column, spreadsheet_name))
+            ''', (str(file_path), safe_filename, sheet_name, status_column, spreadsheet_name))
         else:
             # Inserir novo registro
             cursor.execute('''
                 INSERT INTO enel_spreadsheets (spreadsheet_name, file_path, file_name, sheet_name, status_column)
                 VALUES (?, ?, ?, ?, ?)
-            ''', (spreadsheet_name, str(file_path), filename, sheet_name, status_column))
+            ''', (spreadsheet_name, str(file_path), safe_filename, sheet_name, status_column))
         
         conn.commit()
         conn.close()
@@ -124,7 +126,7 @@ def upload_enel_spreadsheet():
         return jsonify({
             'message': 'Planilha enviada com sucesso',
             'spreadsheet_name': spreadsheet_name,
-            'file_name': filename,
+            'file_name': safe_filename,
             'file_path': str(file_path)
         }), 200
         
@@ -411,7 +413,8 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     found_file = alternative_path
                 else:
                     # Procurar arquivos que contenham parte do nome da planilha
-                    spreadsheet_name_clean = spreadsheet_name.replace(' ', '_').replace('á', 'a').replace('Á', 'A').lower()
+                    # Normalizar nome da planilha para busca
+                    spreadsheet_name_clean = spreadsheet_name.replace(' ', '_').replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A').lower()
                     all_files = list(config.SPREADSHEETS_DIR.glob('*'))
                     
                     # #region agent log
@@ -432,13 +435,24 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                         }) + '\n')
                     # #endregion
                     
+                    # Buscar arquivos ENEL relacionados a esta planilha
+                    # Primeiro, tentar encontrar por padrão ENEL_ + nome da planilha
+                    expected_pattern = f"ENEL_{spreadsheet_name_clean}"
                     for possible_file in all_files:
                         if possible_file.is_file():
                             file_name_lower = possible_file.name.lower()
-                            # Verificar se o nome do arquivo contém partes do nome da planilha
-                            if 'ceara' in file_name_lower or 'ceara' in spreadsheet_name_clean:
-                                if 'alvaras' in file_name_lower or 'alvarás' in file_name_lower:
-                                    logger.info(f"Arquivo possível encontrado: {possible_file}")
+                            # Verificar se começa com ENEL_ e contém partes do nome da planilha
+                            if file_name_lower.startswith('enel_'):
+                                # Verificar palavras-chave específicas da planilha
+                                keywords = []
+                                if 'ceara' in spreadsheet_name_clean or 'ceara' in file_name_lower:
+                                    keywords.append('ceara')
+                                if 'alvaras' in spreadsheet_name_clean or 'alvaras' in file_name_lower or 'alvarás' in file_name_lower:
+                                    keywords.append('alvaras')
+                                
+                                # Se encontrou palavras-chave relevantes, usar este arquivo
+                                if keywords:
+                                    logger.info(f"Arquivo possível encontrado por palavras-chave: {possible_file}")
                                     found_file = possible_file
                                     
                                     # #region agent log
@@ -452,7 +466,8 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                                             'location': 'enel_spreadsheets.py:323',
                                             'message': 'Arquivo encontrado por busca parcial',
                                             'data': {
-                                                'found_file': str(found_file)
+                                                'found_file': str(found_file),
+                                                'keywords_matched': keywords
                                             },
                                             'timestamp': int(datetime.now().timestamp() * 1000)
                                         }) + '\n')
