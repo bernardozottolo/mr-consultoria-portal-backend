@@ -1065,6 +1065,26 @@ def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = Non
     if years is None:
         years = [2024, 2025, 2026]  # Default
     
+    # #region agent log
+    log_dir = Path('.cursor')
+    log_dir.mkdir(exist_ok=True)
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'D',
+            'location': 'enel_spreadsheets.py:1068',
+            'message': 'Chamando process_enel_legalizacao_data na função interna',
+            'data': {
+                'spreadsheet_name': spreadsheet_name,
+                'filter_natureza': filter_natureza,
+                'years': years,
+                'status_column': status_column
+            },
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
+    
     processed_data = process_enel_legalizacao_data(
         data=sheet_data,
         status_column=status_column,
@@ -1276,28 +1296,34 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             if natureza_value:
                 natureza_values_set.add(natureza_value)
             
-            # #region agent log (amostra das primeiras 5 linhas)
-            if rows_before_filter <= 5:
+            # Comparar valores (case-insensitive, com normalização de espaços)
+            natureza_value_normalized = ' '.join(natureza_value.split()).lower()
+            filter_natureza_normalized = ' '.join(filter_natureza.split()).lower()
+            match = natureza_value_normalized == filter_natureza_normalized
+            
+            # #region agent log (amostra das primeiras 10 linhas que passam pelo filtro de natureza)
+            if rows_before_filter <= 10:
                 with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
                     f.write(json.dumps({
                         'sessionId': 'debug-session',
                         'runId': 'run1',
                         'hypothesisId': 'B,F',
-                        'location': 'enel_spreadsheets.py:1080',
+                        'location': 'enel_spreadsheets.py:1255',
                         'message': 'Comparando valor de natureza',
                         'data': {
                             'row_num': rows_before_filter,
                             'natureza_value': natureza_value,
                             'filter_natureza': filter_natureza,
-                            'natureza_value_lower': natureza_value.lower(),
-                            'filter_natureza_lower': filter_natureza.lower(),
-                            'match': natureza_value.lower() == filter_natureza.lower()
+                            'natureza_value_normalized': natureza_value_normalized,
+                            'filter_natureza_normalized': filter_natureza_normalized,
+                            'match': match,
+                            'will_filter_out': not match
                         },
                         'timestamp': int(datetime.now().timestamp() * 1000)
                     }) + '\n')
             # #endregion
             
-            if natureza_value.lower() != filter_natureza.lower():
+            if not match:
                 rows_filtered_out += 1
                 continue  # Pular linhas que não correspondem ao filtro
         
