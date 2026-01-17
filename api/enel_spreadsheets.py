@@ -839,17 +839,16 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Ler arquivo
         logger.info(f"Lendo arquivo: {file_path_obj}")
         try:
-            # Para planilhas relacionadas a Legalização CE, tabela começa na 5ª linha (índice 4)
-            # header=4 significa usar a linha 4 (0-indexed, então 5ª linha) como cabeçalho
-            # O pandas automaticamente pula as linhas antes do header
+            # Somente 'ENEL - Legalização CE' tem tabela começando na 5ª linha (índice 4)
+            # 'Base Ceara Alvarás de funcionamento' começa na primeira linha (normal)
             header_row = None
-            spreadsheet_name_lower = spreadsheet_name.lower()
-            if ('legalização ce' in spreadsheet_name_lower or 
-                'legalizacao ce' in spreadsheet_name_lower or
-                'base ceara' in spreadsheet_name_lower or
-                'base ceará' in spreadsheet_name_lower):
+            if spreadsheet_name == 'ENEL - Legalização CE':
                 header_row = 4  # Linha 4 (0-indexed) = 5ª linha (pandas pula linhas 0-3 automaticamente)
-                logger.info(f"Planilha relacionada a Legalização CE detectada ('{spreadsheet_name}'): usando linha {header_row} (5ª linha) como cabeçalho")
+                logger.info(f"Planilha 'ENEL - Legalização CE' detectada: usando linha {header_row} (5ª linha) como cabeçalho")
+            else:
+                # Outras planilhas (incluindo 'Base Ceara Alvarás de funcionamento') começam na primeira linha
+                header_row = None  # None = primeira linha (0) como cabeçalho
+                logger.info(f"Planilha '{spreadsheet_name}': usando primeira linha como cabeçalho")
             
             sheet_data = read_spreadsheet_file(
                 file_path=str(file_path_obj),
@@ -868,13 +867,9 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     # Tentar usar o primeiro arquivo encontrado
                     file_path_obj = possible_files[0]
                     logger.info(f"Tentando usar arquivo: {file_path_obj} (primeira aba)")
-                    # Para planilhas relacionadas a Legalização CE, tabela começa na 5ª linha
+                    # Somente 'ENEL - Legalização CE' tem tabela começando na 5ª linha
                     header_row = None
-                    spreadsheet_name_lower = spreadsheet_name.lower()
-                    if ('legalização ce' in spreadsheet_name_lower or 
-                        'legalizacao ce' in spreadsheet_name_lower or
-                        'base ceara' in spreadsheet_name_lower or
-                        'base ceará' in spreadsheet_name_lower):
+                    if spreadsheet_name == 'ENEL - Legalização CE':
                         header_row = 4  # Linha 4 (0-indexed) = 5ª linha
                     sheet_data = read_spreadsheet_file(
                         file_path=str(file_path_obj),
