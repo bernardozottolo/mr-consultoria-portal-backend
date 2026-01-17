@@ -665,6 +665,7 @@ def generate_pdf(client_id):
     # Buscar dados de Legalização CE se CE estiver na lista
     legalizacao_ce_data = None
     licenca_sanitaria_data = None
+    anuencia_ambiental_data = None
     
     # #region agent log
     log_dir = Path('.cursor')
@@ -813,6 +814,36 @@ def generate_pdf(client_id):
                 for subcat in licenca_sanitaria_data.get('em_andamento', {}).get('subcategorias', []):
                     if subcat.get('years'):
                         subcat['years'] = convert_years_keys(subcat['years'])
+            
+            # 3. Buscar dados de Anuência Ambiental da planilha 'ENEL - Legalização CE'
+            # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Anuência Ambiental'
+            spreadsheet_name_anuencia = 'ENEL - Legalização CE'
+            filter_natureza_anuencia = 'Anuência Ambiental'
+            result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name=spreadsheet_name_anuencia,
+                years=years,
+                filter_natureza=filter_natureza_anuencia
+            )
+            
+            if isinstance(result, tuple) and len(result) > 0:
+                if result[1] == 200:
+                    anuencia_ambiental_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Anuência Ambiental: status {result[1]}")
+            elif hasattr(result, 'get_json'):
+                anuencia_ambiental_data = result.get_json()
+            
+            # Converter anos nos dados de Anuência Ambiental
+            if anuencia_ambiental_data:
+                if anuencia_ambiental_data.get('total_demandado', {}).get('years'):
+                    anuencia_ambiental_data['total_demandado']['years'] = convert_years_keys(anuencia_ambiental_data['total_demandado']['years'])
+                if anuencia_ambiental_data.get('concluidos', {}).get('years'):
+                    anuencia_ambiental_data['concluidos']['years'] = convert_years_keys(anuencia_ambiental_data['concluidos']['years'])
+                if anuencia_ambiental_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    anuencia_ambiental_data['em_andamento']['total']['years'] = convert_years_keys(anuencia_ambiental_data['em_andamento']['total']['years'])
+                for subcat in anuencia_ambiental_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
     
@@ -827,6 +858,7 @@ def generate_pdf(client_id):
         legalizacao_lista=legalizacao_lista,
         legalizacao_ce_data=legalizacao_ce_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
+        anuencia_ambiental_data=anuencia_ambiental_data,
         years=years,
         comments=comments,
         alvaras_comments=alvaras_comments,
