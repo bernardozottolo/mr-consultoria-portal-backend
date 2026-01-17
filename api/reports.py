@@ -669,6 +669,7 @@ def generate_pdf(client_id):
     legalizacao_ce_data = None
     licenca_sanitaria_data = None
     anuencia_ambiental_data = None
+    certificado_bombeiro_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -774,6 +775,36 @@ def generate_pdf(client_id):
                 for subcat in anuencia_ambiental_data.get('em_andamento', {}).get('subcategorias', []):
                     if subcat.get('years'):
                         subcat['years'] = convert_years_keys(subcat['years'])
+
+            # 4. Buscar dados de Certificado de aprovação Bombeiro da planilha 'ENEL - Legalização CE'
+            # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Certificado de aprovação Bombeiro'
+            spreadsheet_name_bombeiro = 'ENEL - Legalização CE'
+            filter_natureza_bombeiro = 'Certificado de aprovação Bombeiro'
+            result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name=spreadsheet_name_bombeiro,
+                years=years,
+                filter_natureza=filter_natureza_bombeiro
+            )
+
+            if isinstance(result, tuple) and len(result) > 0:
+                if result[1] == 200:
+                    certificado_bombeiro_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Certificado de aprovação Bombeiro: status {result[1]}")
+            elif hasattr(result, 'get_json'):
+                certificado_bombeiro_data = result.get_json()
+
+            # Converter anos nos dados de Certificado de aprovação Bombeiro
+            if certificado_bombeiro_data:
+                if certificado_bombeiro_data.get('total_demandado', {}).get('years'):
+                    certificado_bombeiro_data['total_demandado']['years'] = convert_years_keys(certificado_bombeiro_data['total_demandado']['years'])
+                if certificado_bombeiro_data.get('concluidos', {}).get('years'):
+                    certificado_bombeiro_data['concluidos']['years'] = convert_years_keys(certificado_bombeiro_data['concluidos']['years'])
+                if certificado_bombeiro_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    certificado_bombeiro_data['em_andamento']['total']['years'] = convert_years_keys(certificado_bombeiro_data['em_andamento']['total']['years'])
+                for subcat in certificado_bombeiro_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
     
@@ -789,6 +820,7 @@ def generate_pdf(client_id):
         legalizacao_ce_data=legalizacao_ce_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
+        certificado_bombeiro_data=certificado_bombeiro_data,
         years=years,
         comments=comments,
         alvaras_comments=alvaras_comments,

@@ -525,6 +525,82 @@
         {% endif %}
     </div>
     {% endif %}
+    
+    <!-- Sétima página: Certificado de aprovação Bombeiro -->
+    {% if certificado_bombeiro_data and 'CE' in legalizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">
+            Certificado de aprovação Bombeiro
+        </h1>
+        
+        <!-- Tabela de Certificado de aprovação Bombeiro -->
+        <div class="regional-data">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Indicador</th>
+                        {% for year in years %}
+                        <th>{{ year }}</th>
+                        {% endfor %}
+                        <th>TOTAL</th>
+                        <th>Percentual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Total Demandado -->
+                    <tr class="row-main">
+                        <td><strong>Total Demandado</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year %}
+                        <td>{{ certificado_bombeiro_data.total_demandado.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ certificado_bombeiro_data.total_demandado.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(certificado_bombeiro_data.total_demandado.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Concluídos -->
+                    <tr class="row-main">
+                        <td><strong>Concluídos</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year %}
+                        <td>{{ certificado_bombeiro_data.concluidos.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ certificado_bombeiro_data.concluidos.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(certificado_bombeiro_data.concluidos.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Em Andamento - Total -->
+                    <tr class="row-main">
+                        <td><strong>Em Andamento - Total</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year %}
+                        <td>{{ certificado_bombeiro_data.em_andamento.total.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ certificado_bombeiro_data.em_andamento.total.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(certificado_bombeiro_data.em_andamento.total.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <!-- Subcategorias de Em Andamento -->
+                    {% for subcat in certificado_bombeiro_data.em_andamento.subcategorias %}
+                    <tr class="row-sub">
+                        <td>{{ subcat.name }}</td>
+                        {% for year in years %}
+                        {% set year_key = year %}
+                        <td>{{ subcat.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td>{{ subcat.total }}</td>
+                        <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </body>
 </html>
 
