@@ -833,6 +833,9 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             report_year_end = request.args.get('report_year_end', type=int) or datetime.now().year
             years = list(range(report_year_start, report_year_end + 1))
         
+        # Obter filtro de natureza da operação (para Licença Sanitária)
+        filter_natureza = request.args.get('filter_natureza', None)
+        
         if not years:
             years = [2024, 2025]  # Fallback
         
@@ -912,7 +915,8 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             processed_data = process_enel_legalizacao_data(
                 data=sheet_data,
                 status_column=status_column,
-                years=years
+                years=years,
+                filter_natureza=filter_natureza
             )
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
@@ -963,12 +967,18 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         return jsonify({'error': f'Erro ao buscar dados: {str(e)}'}), 500
 
 
-def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -> dict:
+def process_enel_legalizacao_data(data: dict, status_column: str, years: list, filter_natureza: str = None) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
     - Total demandado (total de registros)
     - Concluídos (status = "Concluído")
     - Alvarás em andamento (outros status como subcategorias)
+    
+    Args:
+        data: Dados da planilha
+        status_column: Nome da coluna de status
+        years: Lista de anos para processar
+        filter_natureza: Valor para filtrar na coluna 'Relatório Natureza da Operação' (opcional)
     """
     headers = data.get('headers', [])
     rows = data.get('values', [])
@@ -1029,6 +1039,30 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
             'requested_year_column': year_column_name
         }
     
+    # Encontrar índice da coluna 'Relatório Natureza da Operação' se filtro for necessário
+    natureza_col_idx = None
+    if filter_natureza:
+        natureza_column_name = 'Relatório Natureza da Operação'
+        for idx, header in enumerate(headers):
+            if header.strip().lower() == natureza_column_name.lower():
+                natureza_col_idx = idx
+                break
+        
+        if natureza_col_idx is None:
+            logger.warning(f"Coluna '{natureza_column_name}' não encontrada para filtro. Colunas disponíveis: {headers}")
+            # Se não encontrar a coluna de natureza, retornar dados vazios com informações
+            return {
+                'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+                'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                'em_andamento': {
+                    'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                    'subcategorias': []
+                },
+                'warning': f"Coluna '{natureza_column_name}' não encontrada para filtro",
+                'available_columns': headers,
+                'requested_natureza_column': natureza_column_name
+            }
+    
     # Processar linhas
     status_counts = {}
     total_by_year = {year: 0 for year in years}
@@ -1036,8 +1070,17 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list) -
     
     for row in rows:
         # Verificar se a linha tem colunas suficientes
-        if len(row) <= max(status_col_idx, year_col_idx):
+        required_indices = [status_col_idx, year_col_idx]
+        if natureza_col_idx is not None:
+            required_indices.append(natureza_col_idx)
+        if len(row) <= max(required_indices):
             continue
+        
+        # Aplicar filtro de natureza da operação se necessário
+        if filter_natureza and natureza_col_idx is not None:
+            natureza_value = str(row[natureza_col_idx]).strip() if natureza_col_idx < len(row) else ""
+            if natureza_value.lower() != filter_natureza.lower():
+                continue  # Pular linhas que não correspondem ao filtro
         
         # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""

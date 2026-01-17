@@ -709,10 +709,11 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
             
             # 2. Buscar dados de Licença Sanitária da planilha 'ENEL - Legalização CE'
+            # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Renovação Licença Sanitária'
             spreadsheet_name_licenca = 'ENEL - Legalização CE'
             with current_app.test_request_context(
                 path=f'/api/enel-spreadsheets/{spreadsheet_name_licenca}/data',
-                query_string=f'years={years_str}',
+                query_string=f'years={years_str}&filter_natureza=Renovação Licença Sanitária',
                 headers={'Authorization': request.headers.get('Authorization', '')}
             ):
                 result = get_enel_spreadsheet_data(spreadsheet_name_licenca)
