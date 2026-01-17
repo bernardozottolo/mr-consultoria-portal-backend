@@ -1349,9 +1349,10 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             # #endregion
             continue  # Pular linhas sem ano
         
-        # Tentar converter o ano para inteiro
+        # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
         try:
-            row_year = int(year_value_str)
+            # Primeiro tentar converter para float e depois para int (para tratar "2024.0")
+            row_year = int(float(year_value_str))
         except (ValueError, TypeError):
             # #region agent log (primeiras 3 linhas com ano inválido)
             if rows_after_filter <= 3:
