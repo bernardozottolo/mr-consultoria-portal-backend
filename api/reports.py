@@ -711,14 +711,10 @@ def generate_pdf(client_id):
             
             # 2. Buscar dados de Licença Sanitária da planilha 'ENEL - Legalização CE'
             # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Renovação Licença Sanitária'
-            from urllib.parse import urlencode
+            from .enel_spreadsheets import _get_enel_spreadsheet_data_internal
+            
             spreadsheet_name_licenca = 'ENEL - Legalização CE'
             filter_natureza_value = 'Renovação Licença Sanitária'
-            query_params = {
-                'years': years_str,
-                'filter_natureza': filter_natureza_value
-            }
-            query_string_encoded = urlencode(query_params)
             
             # #region agent log
             log_dir = Path('.cursor')
@@ -728,49 +724,31 @@ def generate_pdf(client_id):
                     'sessionId': 'debug-session',
                     'runId': 'run1',
                     'hypothesisId': 'D',
-                    'location': 'reports.py:720',
-                    'message': 'ANTES de criar test_request_context para Licença Sanitária',
+                    'location': 'reports.py:714',
+                    'message': 'Chamando função interna para Licença Sanitária',
                     'data': {
                         'spreadsheet_name_licenca': spreadsheet_name_licenca,
                         'filter_natureza_value': filter_natureza_value,
-                        'query_params': query_params,
-                        'query_string_encoded': query_string_encoded,
+                        'years': years,
                         'years_str': years_str
                     },
                     'timestamp': int(datetime.now().timestamp() * 1000)
                 }) + '\n')
             # #endregion
             
-            with current_app.test_request_context(
-                path=f'/api/enel-spreadsheets/{spreadsheet_name_licenca}/data',
-                query_string=query_string_encoded,
-                headers={'Authorization': request.headers.get('Authorization', '')}
-            ):
-                # #region agent log
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'D',
-                        'location': 'reports.py:733',
-                        'message': 'DENTRO do test_request_context - verificando request.args',
-                        'data': {
-                            'request_args_dict': dict(request.args),
-                            'filter_natureza_from_request': request.args.get('filter_natureza'),
-                            'years_from_request': request.args.get('years')
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-                # #endregion
-                
-                result = get_enel_spreadsheet_data(spreadsheet_name_licenca)
-                if hasattr(result, 'get_json'):
-                    licenca_sanitaria_data = result.get_json()
-                elif isinstance(result, tuple) and len(result) > 0:
-                    if result[1] == 200:
-                        licenca_sanitaria_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
-                    else:
-                        logger.warning(f"Erro ao buscar dados de Licença Sanitária: status {result[1]}")
+            result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name=spreadsheet_name_licenca,
+                years=years,
+                filter_natureza=filter_natureza_value
+            )
+            
+            if isinstance(result, tuple) and len(result) > 0:
+                if result[1] == 200:
+                    licenca_sanitaria_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Licença Sanitária: status {result[1]}")
+            elif hasattr(result, 'get_json'):
+                licenca_sanitaria_data = result.get_json()
             
             # Converter anos nos dados de Licença Sanitária
             if licenca_sanitaria_data:

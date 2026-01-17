@@ -986,6 +986,95 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         return jsonify({'error': f'Erro ao buscar dados: {str(e)}'}), 500
 
 
+def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = None, filter_natureza: str = None):
+    """
+    Função interna para obter dados de planilha sem depender do contexto Flask.
+    Pode ser chamada diretamente com parâmetros.
+    """
+    from .spreadsheet_files import read_spreadsheet_file
+    
+    # Buscar informações da planilha
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT file_path, file_name, sheet_name, status_column
+        FROM enel_spreadsheets
+        WHERE spreadsheet_name = ?
+    ''', (spreadsheet_name,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
+    
+    result_dict = dict(result)
+    file_path = result_dict['file_path']
+    
+    # Determinar coluna de status
+    if spreadsheet_name == 'ENEL - Legalização CE':
+        status_column = 'Relatório Status detalhado acionamento'
+    else:
+        status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
+    
+    # Converter para Path
+    if isinstance(file_path, str):
+        file_path_obj = Path(file_path)
+    else:
+        file_path_obj = file_path
+    
+    # Verificar se arquivo existe
+    if not file_path_obj.exists():
+        # Buscar arquivo alternativo (mesma lógica da função principal)
+        file_name = result_dict.get('file_name', '')
+        found_file = None
+        
+        if config.SPREADSHEETS_DIR.exists():
+            safe_spreadsheet_id = spreadsheet_name.replace(' ', '_').replace('/', '_').replace('\\', '_').replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A')
+            for ext in ['.xlsx', '.xls']:
+                expected_filename = f"ENEL_{safe_spreadsheet_id}{ext}"
+                expected_path = config.SPREADSHEETS_DIR / expected_filename
+                if expected_path.exists():
+                    found_file = expected_path
+                    break
+        
+        if not found_file and file_name and config.SPREADSHEETS_DIR.exists():
+            alternative_path = config.SPREADSHEETS_DIR / file_name
+            if alternative_path.exists():
+                found_file = alternative_path
+        
+        if not found_file:
+            return jsonify({'error': f'Arquivo não encontrado: {file_path_obj}'}), 404
+        
+        file_path_obj = found_file
+    
+    # Ler arquivo
+    header_row = None
+    if spreadsheet_name == 'ENEL - Legalização CE':
+        header_row = 4
+    else:
+        header_row = None
+    
+    sheet_data = read_spreadsheet_file(
+        file_path=str(file_path_obj),
+        sheet_name=None,
+        header=header_row
+    )
+    
+    # Processar dados
+    if years is None:
+        years = [2024, 2025, 2026]  # Default
+    
+    processed_data = process_enel_legalizacao_data(
+        data=sheet_data,
+        status_column=status_column,
+        years=years,
+        filter_natureza=filter_natureza
+    )
+    
+    return jsonify(processed_data), 200
+
+
 def process_enel_legalizacao_data(data: dict, status_column: str, years: list, filter_natureza: str = None) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
