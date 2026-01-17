@@ -535,7 +535,12 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         
         file_path = result_dict['file_path']
         # Sempre usar a primeira aba (ignorar o nome salvo no banco)
-        status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
+        # Para 'ENEL - Legalização CE', usar coluna 'Relatório Status detalhado acionamento'
+        # Para outras planilhas, usar coluna padrão 'Relatório Status detalhado'
+        if spreadsheet_name == 'ENEL - Legalização CE':
+            status_column = 'Relatório Status detalhado acionamento'
+        else:
+            status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
         
         logger.info(f"Usando planilha: {spreadsheet_name}, primeira aba (automática), coluna: {status_column}")
         
@@ -834,9 +839,22 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Ler arquivo
         logger.info(f"Lendo arquivo: {file_path_obj}")
         try:
+            # Para planilhas relacionadas a Legalização CE, tabela começa na 5ª linha (índice 4)
+            # header=4 significa usar a linha 4 (0-indexed, então 5ª linha) como cabeçalho
+            # O pandas automaticamente pula as linhas antes do header
+            header_row = None
+            spreadsheet_name_lower = spreadsheet_name.lower()
+            if ('legalização ce' in spreadsheet_name_lower or 
+                'legalizacao ce' in spreadsheet_name_lower or
+                'base ceara' in spreadsheet_name_lower or
+                'base ceará' in spreadsheet_name_lower):
+                header_row = 4  # Linha 4 (0-indexed) = 5ª linha (pandas pula linhas 0-3 automaticamente)
+                logger.info(f"Planilha relacionada a Legalização CE detectada ('{spreadsheet_name}'): usando linha {header_row} (5ª linha) como cabeçalho")
+            
             sheet_data = read_spreadsheet_file(
                 file_path=str(file_path_obj),
-                sheet_name=None  # None = primeira aba automaticamente
+                sheet_name=None,  # None = primeira aba automaticamente
+                header=header_row
             )
         except FileNotFoundError as e:
             logger.error(f"Arquivo não encontrado: {e}")
@@ -850,9 +868,18 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     # Tentar usar o primeiro arquivo encontrado
                     file_path_obj = possible_files[0]
                     logger.info(f"Tentando usar arquivo: {file_path_obj} (primeira aba)")
+                    # Para planilhas relacionadas a Legalização CE, tabela começa na 5ª linha
+                    header_row = None
+                    spreadsheet_name_lower = spreadsheet_name.lower()
+                    if ('legalização ce' in spreadsheet_name_lower or 
+                        'legalizacao ce' in spreadsheet_name_lower or
+                        'base ceara' in spreadsheet_name_lower or
+                        'base ceará' in spreadsheet_name_lower):
+                        header_row = 4  # Linha 4 (0-indexed) = 5ª linha
                     sheet_data = read_spreadsheet_file(
                         file_path=str(file_path_obj),
-                        sheet_name=None  # None = primeira aba automaticamente
+                        sheet_name=None,  # None = primeira aba automaticamente
+                        header=header_row
                     )
                 else:
                     return jsonify({
@@ -886,35 +913,12 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 }) + '\n')
             # #endregion
             
-            # Processar dados de Alvarás de Funcionamento (coluna padrão)
+            # Processar dados usando a coluna de status determinada acima
             processed_data = process_enel_legalizacao_data(
                 data=sheet_data,
                 status_column=status_column,
                 years=years
             )
-            
-            # Processar dados de Licença Sanitária - Renovação (coluna 'Relatório Status detalhado acionamento')
-            licenca_sanitaria_data = None
-            try:
-                licenca_sanitaria_status_column = 'Relatório Status detalhado acionamento'
-                licenca_sanitaria_data = process_enel_legalizacao_data(
-                    data=sheet_data,
-                    status_column=licenca_sanitaria_status_column,
-                    years=years
-                )
-                # Adicionar aos dados processados
-                processed_data['licenca_sanitaria'] = licenca_sanitaria_data
-            except Exception as e:
-                logger.warning(f"Erro ao processar dados de Licença Sanitária: {e}")
-                # Adicionar dados vazios se não conseguir processar
-                processed_data['licenca_sanitaria'] = {
-                    'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
-                    'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-                    'em_andamento': {
-                        'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-                        'subcategorias': []
-                    }
-                }
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
             if "não encontrada" in str(ve):

@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 def read_spreadsheet_file(
     file_path: str,
-    sheet_name: Optional[str] = None
+    sheet_name: Optional[str] = None,
+    header: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     Lê dados de um arquivo de planilha (Excel ou CSV)
@@ -21,6 +22,8 @@ def read_spreadsheet_file(
     Args:
         file_path: Caminho para o arquivo
         sheet_name: Nome da aba (para Excel). Se None, usa a primeira aba
+        header: Linha a usar como cabeçalho (0-indexed). Se None, usa primeira linha (0).
+                O pandas automaticamente pula as linhas antes do header.
         
     Returns:
         Dicionário com 'values' (lista de linhas) e 'headers' (primeira linha)
@@ -38,19 +41,26 @@ def read_spreadsheet_file(
         
         if file_ext == '.csv':
             # Ler CSV
-            df = pd.read_csv(file_path, encoding='utf-8')
-            logger.info(f"Arquivo CSV lido: {len(df)} linhas, {len(df.columns)} colunas")
+            read_params = {'encoding': 'utf-8'}
+            if header is not None:
+                read_params['header'] = header
+            df = pd.read_csv(file_path, **read_params)
+            logger.info(f"Arquivo CSV lido: {len(df)} linhas, {len(df.columns)} colunas (header={header})")
         elif file_ext in ['.xlsx', '.xls']:
             # Ler Excel
+            read_params = {'engine': 'openpyxl'}
+            if header is not None:
+                read_params['header'] = header
+            
             if sheet_name:
-                df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
+                df = pd.read_excel(file_path, sheet_name=sheet_name, **read_params)
             else:
                 # Usar primeira aba
                 excel_file = pd.ExcelFile(file_path, engine='openpyxl')
                 sheet_name = excel_file.sheet_names[0]
-                df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl')
+                df = pd.read_excel(file_path, sheet_name=sheet_name, **read_params)
                 logger.info(f"Usando primeira aba: {sheet_name}")
-            logger.info(f"Arquivo Excel lido: {len(df)} linhas, {len(df.columns)} colunas")
+            logger.info(f"Arquivo Excel lido: {len(df)} linhas, {len(df.columns)} colunas (header={header})")
         else:
             raise ValueError(f"Formato de arquivo não suportado: {file_ext}")
         
