@@ -5,6 +5,7 @@ import os
 import json
 import logging
 from pathlib import Path
+from datetime import datetime
 try:
     from weasyprint import HTML
     from weasyprint.text.fonts import FontConfiguration
@@ -710,12 +711,58 @@ def generate_pdf(client_id):
             
             # 2. Buscar dados de Licença Sanitária da planilha 'ENEL - Legalização CE'
             # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Renovação Licença Sanitária'
+            from urllib.parse import urlencode
             spreadsheet_name_licenca = 'ENEL - Legalização CE'
+            filter_natureza_value = 'Renovação Licença Sanitária'
+            query_params = {
+                'years': years_str,
+                'filter_natureza': filter_natureza_value
+            }
+            query_string_encoded = urlencode(query_params)
+            
+            # #region agent log
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'D',
+                    'location': 'reports.py:720',
+                    'message': 'ANTES de criar test_request_context para Licença Sanitária',
+                    'data': {
+                        'spreadsheet_name_licenca': spreadsheet_name_licenca,
+                        'filter_natureza_value': filter_natureza_value,
+                        'query_params': query_params,
+                        'query_string_encoded': query_string_encoded,
+                        'years_str': years_str
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
+            
             with current_app.test_request_context(
                 path=f'/api/enel-spreadsheets/{spreadsheet_name_licenca}/data',
-                query_string=f'years={years_str}&filter_natureza=Renovação Licença Sanitária',
+                query_string=query_string_encoded,
                 headers={'Authorization': request.headers.get('Authorization', '')}
             ):
+                # #region agent log
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'D',
+                        'location': 'reports.py:733',
+                        'message': 'DENTRO do test_request_context - verificando request.args',
+                        'data': {
+                            'request_args_dict': dict(request.args),
+                            'filter_natureza_from_request': request.args.get('filter_natureza'),
+                            'years_from_request': request.args.get('years')
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+                # #endregion
+                
                 result = get_enel_spreadsheet_data(spreadsheet_name_licenca)
                 if hasattr(result, 'get_json'):
                     licenca_sanitaria_data = result.get_json()
