@@ -273,6 +273,20 @@ def generate_pdf(client_id):
     except json.JSONDecodeError:
         comments = []
     
+    # Separar comentários por página
+    alvaras_comments = []
+    licenca_comments = []
+    for comment in comments:
+        if isinstance(comment, dict):
+            page = comment.get('page', '')
+            if page == 'Licença Sanitária - Renovação':
+                licenca_comments.append(comment)
+            elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
+                alvaras_comments.append(comment)
+        else:
+            # Comentários antigos sem página definida vão para Alvarás
+            alvaras_comments.append(comment)
+    
     # Valores padrão se não fornecidos
     from datetime import datetime
     if mes is None:
@@ -737,6 +751,8 @@ def generate_pdf(client_id):
         licenca_sanitaria_data=licenca_sanitaria_data,
         years=years,
         comments=comments,
+        alvaras_comments=alvaras_comments,
+        licenca_comments=licenca_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
