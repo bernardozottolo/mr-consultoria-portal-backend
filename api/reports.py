@@ -670,24 +670,6 @@ def generate_pdf(client_id):
     licenca_sanitaria_data = None
     anuencia_ambiental_data = None
     
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'D',
-            'location': 'reports.py:665',
-            'message': 'Verificando se CE está na lista de legalização',
-            'data': {
-                'legalizacao_lista': legalizacao_lista,
-                'ce_in_list': 'CE' in legalizacao_lista
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
     if 'CE' in legalizacao_lista:
         try:
             from .enel_spreadsheets import get_enel_spreadsheet_data
@@ -738,69 +720,14 @@ def generate_pdf(client_id):
             spreadsheet_name_licenca = 'ENEL - Legalização CE'
             filter_natureza_value = 'Renovação Licença Sanitária'
             
-            # #region agent log
-            log_dir = Path('.cursor')
-            log_dir.mkdir(exist_ok=True)
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'D',
-                    'location': 'reports.py:714',
-                    'message': 'Chamando função interna para Licença Sanitária',
-                    'data': {
-                        'spreadsheet_name_licenca': spreadsheet_name_licenca,
-                        'filter_natureza_value': filter_natureza_value,
-                        'years': years,
-                        'years_str': years_str
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
-            
             result = _get_enel_spreadsheet_data_internal(
                 spreadsheet_name=spreadsheet_name_licenca,
                 years=years,
                 filter_natureza=filter_natureza_value
             )
-            
-            # #region agent log
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'D',
-                    'location': 'reports.py:743',
-                    'message': 'APÓS chamar função interna - verificando resultado',
-                    'data': {
-                        'result_type': type(result).__name__,
-                        'is_tuple': isinstance(result, tuple),
-                        'result_length': len(result) if isinstance(result, tuple) else None,
-                        'has_get_json': hasattr(result, 'get_json') if not isinstance(result, tuple) else None
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
-            
             if isinstance(result, tuple) and len(result) > 0:
                 if result[1] == 200:
                     licenca_sanitaria_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
-                    
-                    # #region agent log
-                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            'sessionId': 'debug-session',
-                            'runId': 'run1',
-                            'hypothesisId': 'D',
-                            'location': 'reports.py:750',
-                            'message': 'Dados de Licença Sanitária obtidos com sucesso',
-                            'data': {
-                                'licenca_sanitaria_data_keys': list(licenca_sanitaria_data.keys()) if licenca_sanitaria_data else None,
-                                'total_demandado': licenca_sanitaria_data.get('total_demandado', {}).get('total') if licenca_sanitaria_data else None
-                            },
-                            'timestamp': int(datetime.now().timestamp() * 1000)
-                        }) + '\n')
-                    # #endregion
                 else:
                     logger.warning(f"Erro ao buscar dados de Licença Sanitária: status {result[1]}")
             elif hasattr(result, 'get_json'):

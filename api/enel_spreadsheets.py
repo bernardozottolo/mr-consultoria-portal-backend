@@ -512,27 +512,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Converter Row para dict para facilitar acesso
         result_dict = dict(result)
         
-        # #region agent log
-        log_dir = Path('.cursor')
-        log_dir.mkdir(exist_ok=True)
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A,B,C,D,E',
-                'location': 'enel_spreadsheets.py:272',
-                'message': 'Dados do banco de dados',
-                'data': {
-                    'spreadsheet_name': spreadsheet_name,
-                    'file_path_from_db': result_dict.get('file_path'),
-                    'file_name_from_db': result_dict.get('file_name'),
-                    'sheet_name_from_db': result_dict.get('sheet_name'),
-                    'status_column_from_db': result_dict.get('status_column')
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
-        
         file_path = result_dict['file_path']
         # Sempre usar a primeira aba (ignorar o nome salvo no banco)
         # Para 'ENEL - Legalização CE', usar coluna 'Relatório Status detalhado acionamento'
@@ -551,27 +530,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         else:
             file_path_obj = file_path
         
-        # #region agent log
-        log_dir = Path('.cursor')
-        log_dir.mkdir(exist_ok=True)
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A,B,C',
-                'location': 'enel_spreadsheets.py:283',
-                'message': 'Caminho inicial construído',
-                'data': {
-                    'file_path_str': str(file_path),
-                    'file_path_obj': str(file_path_obj),
-                    'is_absolute': file_path_obj.is_absolute(),
-                    'spreadsheets_dir': str(config.SPREADSHEETS_DIR),
-                    'spreadsheets_dir_exists': config.SPREADSHEETS_DIR.exists() if hasattr(config, 'SPREADSHEETS_DIR') else False
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
-        
         # Se o caminho não for absoluto, tentar construir caminho relativo ao SPREADSHEETS_DIR
         if not file_path_obj.is_absolute():
             # Tentar usar o caminho completo primeiro
@@ -580,24 +538,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             else:
                 # Se o diretório não existe, tentar usar o caminho como está
                 pass
-        
-        # #region agent log
-        log_dir = Path('.cursor')
-        log_dir.mkdir(exist_ok=True)
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A,C',
-                'location': 'enel_spreadsheets.py:298',
-                'message': 'Caminho após processamento',
-                'data': {
-                    'file_path_obj': str(file_path_obj),
-                    'exists': file_path_obj.exists() if file_path_obj else False
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
         
         # Verificar se arquivo existe
         if not file_path_obj.exists():
@@ -608,24 +548,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             # Tentar encontrar o arquivo pelo nome no diretório de planilhas
             file_name = result_dict.get('file_name', '')
             found_file = None
-            
-            # #region agent log
-            log_dir = Path('.cursor')
-            log_dir.mkdir(exist_ok=True)
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A,D,E',
-                    'location': 'enel_spreadsheets.py:304',
-                    'message': 'Iniciando busca alternativa',
-                    'data': {
-                        'file_name_from_db': file_name,
-                        'spreadsheets_dir_exists': config.SPREADSHEETS_DIR.exists() if hasattr(config, 'SPREADSHEETS_DIR') else False
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
             
             # PRIMEIRO: Tentar construir o nome esperado usando a mesma lógica do upload
             if config.SPREADSHEETS_DIR.exists():
@@ -645,24 +567,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 # Tentar encontrar por nome exato
                 alternative_path = config.SPREADSHEETS_DIR / file_name
                 
-                # #region agent log
-                log_dir = Path('.cursor')
-                log_dir.mkdir(exist_ok=True)
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'A',
-                        'location': 'enel_spreadsheets.py:310',
-                        'message': 'Tentando caminho alternativo por nome exato',
-                        'data': {
-                            'alternative_path': str(alternative_path),
-                            'exists': alternative_path.exists()
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-                # #endregion
-                
                 if alternative_path.exists():
                     logger.info(f"Arquivo encontrado por nome: {alternative_path}")
                     found_file = alternative_path
@@ -671,24 +575,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     # Normalizar nome da planilha para busca
                     spreadsheet_name_clean = spreadsheet_name.replace(' ', '_').replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A').lower()
                     all_files = list(config.SPREADSHEETS_DIR.glob('*'))
-                    
-                    # #region agent log
-                    log_dir = Path('.cursor')
-                    log_dir.mkdir(exist_ok=True)
-                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            'sessionId': 'debug-session',
-                            'runId': 'run1',
-                            'hypothesisId': 'E',
-                            'location': 'enel_spreadsheets.py:316',
-                            'message': 'Listando todos os arquivos no diretório',
-                            'data': {
-                                'all_files': [str(f.name) for f in all_files if f.is_file()],
-                                'spreadsheet_name_clean': spreadsheet_name_clean
-                            },
-                            'timestamp': int(datetime.now().timestamp() * 1000)
-                        }) + '\n')
-                    # #endregion
                     
                     # Buscar arquivos ENEL relacionados a esta planilha
                     # Primeiro, tentar encontrar por padrão ENEL_ + nome da planilha
@@ -709,24 +595,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                                 if keywords:
                                     logger.info(f"Arquivo possível encontrado por palavras-chave: {possible_file}")
                                     found_file = possible_file
-                                    
-                                    # #region agent log
-                                    log_dir = Path('.cursor')
-                                    log_dir.mkdir(exist_ok=True)
-                                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                        f.write(json.dumps({
-                                            'sessionId': 'debug-session',
-                                            'runId': 'run1',
-                                            'hypothesisId': 'E',
-                                            'location': 'enel_spreadsheets.py:323',
-                                            'message': 'Arquivo encontrado por busca parcial',
-                                            'data': {
-                                                'found_file': str(found_file),
-                                                'keywords_matched': keywords
-                                            },
-                                            'timestamp': int(datetime.now().timestamp() * 1000)
-                                        }) + '\n')
-                                    # #endregion
                                     
                                     break
             
@@ -770,26 +638,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                         except Exception as e:
                             logger.error(f"Erro ao listar arquivos: {e}")
                     
-                    # #region agent log
-                    log_dir = Path('.cursor')
-                    log_dir.mkdir(exist_ok=True)
-                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                        f.write(json.dumps({
-                            'sessionId': 'debug-session',
-                            'runId': 'run1',
-                            'hypothesisId': 'A,C,D,E',
-                            'location': 'enel_spreadsheets.py:326',
-                            'message': 'Arquivo não encontrado - listando diretório',
-                            'data': {
-                                'searched_path': str(file_path_obj),
-                                'file_name_from_db': file_name,
-                                'files_in_dir': files_in_dir,
-                                'spreadsheets_dir': str(config.SPREADSHEETS_DIR)
-                            },
-                            'timestamp': int(datetime.now().timestamp() * 1000)
-                        }) + '\n')
-                    # #endregion
-                    
                     return jsonify({
                     'error': f'Arquivo não encontrado: {file_path_obj}',
                     'original_path': str(file_path),
@@ -802,24 +650,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             
             file_path_obj = found_file
             
-            # #region agent log
-            log_dir = Path('.cursor')
-            log_dir.mkdir(exist_ok=True)
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A,C',
-                    'location': 'enel_spreadsheets.py:345',
-                    'message': 'Arquivo encontrado via busca alternativa',
-                    'data': {
-                        'final_file_path': str(file_path_obj),
-                        'exists': file_path_obj.exists() if file_path_obj else False
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
-        
         # Obter anos da query string
         years_param = request.args.get('years', '')
         if years_param:
@@ -841,26 +671,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             from urllib.parse import unquote
             filter_natureza = unquote(filter_natureza)
         
-        # #region agent log
-        log_dir = Path('.cursor')
-        log_dir.mkdir(exist_ok=True)
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A,D',
-                'location': 'enel_spreadsheets.py:837',
-                'message': 'Parâmetro filter_natureza recebido (função HTTP)',
-                'data': {
-                    'filter_natureza_raw': request.args.get('filter_natureza', None),
-                    'filter_natureza_decoded': filter_natureza,
-                    'spreadsheet_name': spreadsheet_name,
-                    'years': years,
-                    'all_request_args': dict(request.args)
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
         
         if not years:
             years = [2024, 2025]  # Fallback
@@ -1179,66 +989,13 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
     if filter_natureza:
         natureza_column_name = 'Relatório Natureza da Operação'
         
-        # #region agent log
-        log_dir = Path('.cursor')
-        log_dir.mkdir(exist_ok=True)
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A',
-                'location': 'enel_spreadsheets.py:1044',
-                'message': 'Procurando coluna de natureza',
-                'data': {
-                    'filter_natureza': filter_natureza,
-                    'natureza_column_name': natureza_column_name,
-                    'headers_count': len(headers),
-                    'headers_sample': headers[:10] if len(headers) > 10 else headers
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
-        
         for idx, header in enumerate(headers):
             if header.strip().lower() == natureza_column_name.lower():
                 natureza_col_idx = idx
                 break
         
-        # #region agent log
-        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': 'A',
-                'location': 'enel_spreadsheets.py:1051',
-                'message': 'Resultado da busca da coluna de natureza',
-                'data': {
-                    'natureza_col_idx': natureza_col_idx,
-                    'natureza_column_name': natureza_column_name,
-                    'found': natureza_col_idx is not None
-                },
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
-        # #endregion
-        
         if natureza_col_idx is None:
             logger.warning(f"Coluna '{natureza_column_name}' não encontrada para filtro. Colunas disponíveis: {headers}")
-            
-            # #region agent log
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A',
-                    'location': 'enel_spreadsheets.py:1052',
-                    'message': 'Coluna de natureza não encontrada - retornando dados vazios',
-                    'data': {
-                        'requested_column': natureza_column_name,
-                        'all_headers': headers
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
             
             # Se não encontrar a coluna de natureza, retornar dados vazios com informações
             return {
@@ -1257,27 +1014,6 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
     status_counts = {}
     total_by_year = {year: 0 for year in years}
     total_all = 0
-    
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'B,C,E,F',
-            'location': 'enel_spreadsheets.py:1066',
-            'message': 'Iniciando processamento de linhas',
-            'data': {
-                'total_rows': len(rows),
-                'filter_natureza': filter_natureza,
-                'natureza_col_idx': natureza_col_idx,
-                'status_col_idx': status_col_idx,
-                'year_col_idx': year_col_idx
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
     
     # Coletar valores únicos de natureza para debug
     natureza_values_set = set()
@@ -1308,28 +1044,6 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             filter_natureza_normalized = ' '.join(filter_natureza.split()).lower()
             match = natureza_value_normalized == filter_natureza_normalized
             
-            # #region agent log (amostra das primeiras 10 linhas que passam pelo filtro de natureza)
-            if rows_before_filter <= 10:
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'B,F',
-                        'location': 'enel_spreadsheets.py:1255',
-                        'message': 'Comparando valor de natureza',
-                        'data': {
-                            'row_num': rows_before_filter,
-                            'natureza_value': natureza_value,
-                            'filter_natureza': filter_natureza,
-                            'natureza_value_normalized': natureza_value_normalized,
-                            'filter_natureza_normalized': filter_natureza_normalized,
-                            'match': match,
-                            'will_filter_out': not match
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-            # #endregion
-            
             if not match:
                 rows_filtered_out += 1
                 continue  # Pular linhas que não correspondem ao filtro
@@ -1339,47 +1053,11 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
         if not status_value:
-            # #region agent log (primeiras 3 linhas filtradas sem status)
-            if rows_after_filter <= 3:
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'E',
-                        'location': 'enel_spreadsheets.py:1090',
-                        'message': 'Linha filtrada sem status válido',
-                        'data': {
-                            'row_num': rows_after_filter,
-                            'status_value': status_value,
-                            'status_col_idx': status_col_idx,
-                            'row_length': len(row)
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-            # #endregion
             continue
         
         # Obter ano da coluna 'ano Acionamento'
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
         if not year_value_str:
-            # #region agent log (primeiras 3 linhas filtradas sem ano)
-            if rows_after_filter <= 3:
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'E',
-                        'location': 'enel_spreadsheets.py:1100',
-                        'message': 'Linha filtrada sem ano válido',
-                        'data': {
-                            'row_num': rows_after_filter,
-                            'year_value_str': year_value_str,
-                            'year_col_idx': year_col_idx,
-                            'row_length': len(row)
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-            # #endregion
             continue  # Pular linhas sem ano
         
         # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
@@ -1387,66 +1065,12 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             # Primeiro tentar converter para float e depois para int (para tratar "2024.0")
             row_year = int(float(year_value_str))
         except (ValueError, TypeError):
-            # #region agent log (primeiras 3 linhas com ano inválido)
-            if rows_after_filter <= 3:
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'E',
-                        'location': 'enel_spreadsheets.py:1115',
-                        'message': 'Linha filtrada com ano inválido (não pode converter)',
-                        'data': {
-                            'row_num': rows_after_filter,
-                            'year_value_str': year_value_str,
-                            'years_solicitados': years
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-            # #endregion
             # Se não conseguir converter, pular a linha
             continue
         
         # Verificar se o ano está na lista de anos solicitados
         if row_year not in years:
-            # #region agent log (primeiras 3 linhas com ano fora do range)
-            if rows_after_filter <= 3:
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'E',
-                        'location': 'enel_spreadsheets.py:1125',
-                        'message': 'Linha filtrada com ano fora do range',
-                        'data': {
-                            'row_num': rows_after_filter,
-                            'row_year': row_year,
-                            'years_solicitados': years,
-                            'year_in_years': row_year in years
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-            # #endregion
             continue  # Pular anos fora do range solicitado
-        
-        # #region agent log (primeiras 3 linhas que passaram por todos os filtros)
-        if total_all < 3:
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'E',
-                    'location': 'enel_spreadsheets.py:1135',
-                    'message': 'Linha filtrada PASSANDO por todos os filtros',
-                    'data': {
-                        'row_num': rows_after_filter,
-                        'status_value': status_value,
-                        'row_year': row_year,
-                        'natureza_value': str(row[natureza_col_idx]).strip() if natureza_col_idx is not None and natureza_col_idx < len(row) else None
-                    },
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }) + '\n')
-        # #endregion
         
         # Normalizar status (case-insensitive, remover espaços extras)
         status_normalized = ' '.join(status_value.split()).lower()
@@ -1463,27 +1087,6 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         total_by_year[row_year] += 1
         status_counts[status_normalized]['total'] += 1
         total_all += 1
-    
-    # #region agent log
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'B,C,E,F',
-            'location': 'enel_spreadsheets.py:1120',
-            'message': 'Estatísticas de filtro e processamento',
-            'data': {
-                'rows_before_filter': rows_before_filter,
-                'rows_after_filter': rows_after_filter,
-                'rows_filtered_out': rows_filtered_out,
-                'total_all': total_all,
-                'filter_natureza': filter_natureza,
-                'unique_natureza_values': list(natureza_values_set)[:20],  # Primeiros 20 valores únicos
-                'natureza_values_count': len(natureza_values_set)
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
     
     # Separar Concluídos e outros status
     concluidos_normalized = 'concluído'
