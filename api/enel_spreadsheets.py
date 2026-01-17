@@ -836,6 +836,11 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Obter filtro de natureza da operação (para Licença Sanitária)
         filter_natureza = request.args.get('filter_natureza', None)
         
+        # Decodificar URL se necessário
+        if filter_natureza:
+            from urllib.parse import unquote
+            filter_natureza = unquote(filter_natureza)
+        
         # #region agent log
         log_dir = Path('.cursor')
         log_dir.mkdir(exist_ok=True)
@@ -845,11 +850,13 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 'runId': 'run1',
                 'hypothesisId': 'A,D',
                 'location': 'enel_spreadsheets.py:837',
-                'message': 'Parâmetro filter_natureza recebido',
+                'message': 'Parâmetro filter_natureza recebido (função HTTP)',
                 'data': {
-                    'filter_natureza': filter_natureza,
+                    'filter_natureza_raw': request.args.get('filter_natureza', None),
+                    'filter_natureza_decoded': filter_natureza,
                     'spreadsheet_name': spreadsheet_name,
-                    'years': years
+                    'years': years,
+                    'all_request_args': dict(request.args)
                 },
                 'timestamp': int(datetime.now().timestamp() * 1000)
             }) + '\n')
