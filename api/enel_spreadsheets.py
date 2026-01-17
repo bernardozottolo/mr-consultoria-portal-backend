@@ -1306,23 +1306,113 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
         if not status_value:
+            # #region agent log (primeiras 3 linhas filtradas sem status)
+            if rows_after_filter <= 3:
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'E',
+                        'location': 'enel_spreadsheets.py:1090',
+                        'message': 'Linha filtrada sem status válido',
+                        'data': {
+                            'row_num': rows_after_filter,
+                            'status_value': status_value,
+                            'status_col_idx': status_col_idx,
+                            'row_length': len(row)
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+            # #endregion
             continue
         
         # Obter ano da coluna 'ano Acionamento'
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
         if not year_value_str:
+            # #region agent log (primeiras 3 linhas filtradas sem ano)
+            if rows_after_filter <= 3:
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'E',
+                        'location': 'enel_spreadsheets.py:1100',
+                        'message': 'Linha filtrada sem ano válido',
+                        'data': {
+                            'row_num': rows_after_filter,
+                            'year_value_str': year_value_str,
+                            'year_col_idx': year_col_idx,
+                            'row_length': len(row)
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+            # #endregion
             continue  # Pular linhas sem ano
         
         # Tentar converter o ano para inteiro
         try:
             row_year = int(year_value_str)
         except (ValueError, TypeError):
+            # #region agent log (primeiras 3 linhas com ano inválido)
+            if rows_after_filter <= 3:
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'E',
+                        'location': 'enel_spreadsheets.py:1115',
+                        'message': 'Linha filtrada com ano inválido (não pode converter)',
+                        'data': {
+                            'row_num': rows_after_filter,
+                            'year_value_str': year_value_str,
+                            'years_solicitados': years
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+            # #endregion
             # Se não conseguir converter, pular a linha
             continue
         
         # Verificar se o ano está na lista de anos solicitados
         if row_year not in years:
+            # #region agent log (primeiras 3 linhas com ano fora do range)
+            if rows_after_filter <= 3:
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'E',
+                        'location': 'enel_spreadsheets.py:1125',
+                        'message': 'Linha filtrada com ano fora do range',
+                        'data': {
+                            'row_num': rows_after_filter,
+                            'row_year': row_year,
+                            'years_solicitados': years,
+                            'year_in_years': row_year in years
+                        },
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }) + '\n')
+            # #endregion
             continue  # Pular anos fora do range solicitado
+        
+        # #region agent log (primeiras 3 linhas que passaram por todos os filtros)
+        if total_all < 3:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'E',
+                    'location': 'enel_spreadsheets.py:1135',
+                    'message': 'Linha filtrada PASSANDO por todos os filtros',
+                    'data': {
+                        'row_num': rows_after_filter,
+                        'status_value': status_value,
+                        'row_year': row_year,
+                        'natureza_value': str(row[natureza_col_idx]).strip() if natureza_col_idx is not None and natureza_col_idx < len(row) else None
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        # #endregion
         
         # Normalizar status (case-insensitive, remover espaços extras)
         status_normalized = ' '.join(status_value.split()).lower()
