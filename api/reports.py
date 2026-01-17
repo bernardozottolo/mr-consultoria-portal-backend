@@ -710,10 +710,35 @@ def generate_pdf(client_id):
             
             # 2. Buscar dados de Licença Sanitária da planilha 'ENEL - Legalização CE'
             # Filtrar apenas registros onde 'Relatório Natureza da Operação' = 'Renovação Licença Sanitária'
+            from urllib.parse import quote_plus
             spreadsheet_name_licenca = 'ENEL - Legalização CE'
+            filter_natureza_value = 'Renovação Licença Sanitária'
+            query_string_licenca = f'years={years_str}&filter_natureza={quote_plus(filter_natureza_value)}'
+            # #region agent log
+            import json
+            from pathlib import Path
+            from datetime import datetime as dt
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'E',
+                    'location': 'reports.py:715',
+                    'message': 'Chamando API para Licença Sanitária com filtro',
+                    'data': {
+                        'spreadsheet_name': spreadsheet_name_licenca,
+                        'query_string': query_string_licenca,
+                        'filter_natureza_value': filter_natureza_value,
+                        'years_str': years_str
+                    },
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
             with current_app.test_request_context(
                 path=f'/api/enel-spreadsheets/{spreadsheet_name_licenca}/data',
-                query_string=f'years={years_str}&filter_natureza=Renovação Licença Sanitária',
+                query_string=query_string_licenca,
                 headers={'Authorization': request.headers.get('Authorization', '')}
             ):
                 result = get_enel_spreadsheet_data(spreadsheet_name_licenca)

@@ -835,6 +835,24 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         
         # Obter filtro de natureza da operação (para Licença Sanitária)
         filter_natureza = request.args.get('filter_natureza', None)
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'E',
+                'location': 'enel_spreadsheets.py:837',
+                'message': 'Parâmetro filter_natureza recebido',
+                'data': {
+                    'filter_natureza': filter_natureza,
+                    'filter_natureza_type': type(filter_natureza).__name__,
+                    'all_args': dict(request.args)
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         
         if not years:
             years = [2024, 2025]  # Fallback
@@ -1043,6 +1061,25 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
     natureza_col_idx = None
     if filter_natureza:
         natureza_column_name = 'Relatório Natureza da Operação'
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'B',
+                'location': 'enel_spreadsheets.py:1045',
+                'message': 'Buscando coluna de natureza da operação',
+                'data': {
+                    'filter_natureza': filter_natureza,
+                    'natureza_column_name': natureza_column_name,
+                    'headers_available': headers,
+                    'headers_count': len(headers)
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         for idx, header in enumerate(headers):
             if header.strip().lower() == natureza_column_name.lower():
                 natureza_col_idx = idx
@@ -1050,6 +1087,22 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         
         if natureza_col_idx is None:
             logger.warning(f"Coluna '{natureza_column_name}' não encontrada para filtro. Colunas disponíveis: {headers}")
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'B',
+                    'location': 'enel_spreadsheets.py:1051',
+                    'message': 'Coluna de natureza NÃO encontrada',
+                    'data': {
+                        'requested_column': natureza_column_name,
+                        'available_columns': headers,
+                        'filter_natureza': filter_natureza
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
             # Se não encontrar a coluna de natureza, retornar dados vazios com informações
             return {
                 'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
@@ -1062,6 +1115,22 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
                 'available_columns': headers,
                 'requested_natureza_column': natureza_column_name
             }
+        # #region agent log
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'B',
+                'location': 'enel_spreadsheets.py:1064',
+                'message': 'Coluna de natureza encontrada',
+                'data': {
+                    'natureza_col_idx': natureza_col_idx,
+                    'column_name_found': headers[natureza_col_idx] if natureza_col_idx < len(headers) else None,
+                    'filter_natureza': filter_natureza
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
     
     # Processar linhas
     status_counts = {}
@@ -1118,6 +1187,26 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         total_by_year[row_year] += 1
         status_counts[status_normalized]['total'] += 1
         total_all += 1
+    
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'A,C,D',
+            'location': 'enel_spreadsheets.py:1115',
+            'message': 'Processamento de linhas concluído',
+            'data': {
+                'rows_processed': rows_processed,
+                'rows_filtered_by_natureza': rows_filtered_by_natureza,
+                'rows_passed_filter': rows_processed - rows_filtered_by_natureza,
+                'total_all': total_all,
+                'natureza_values_seen': list(natureza_values_seen)[:20],  # Primeiros 20 valores únicos
+                'filter_natureza': filter_natureza
+            },
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
     
     # Separar Concluídos e outros status
     concluidos_normalized = 'concluído'
