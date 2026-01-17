@@ -535,12 +535,7 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         
         file_path = result_dict['file_path']
         # Sempre usar a primeira aba (ignorar o nome salvo no banco)
-        # Permitir sobrescrever status_column via query parameter
-        status_column_param = request.args.get('status_column')
-        if status_column_param:
-            status_column = status_column_param
-        else:
-            status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
+        status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
         
         logger.info(f"Usando planilha: {spreadsheet_name}, primeira aba (automática), coluna: {status_column}")
         
@@ -891,11 +886,35 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 }) + '\n')
             # #endregion
             
+            # Processar dados de Alvarás de Funcionamento (coluna padrão)
             processed_data = process_enel_legalizacao_data(
                 data=sheet_data,
                 status_column=status_column,
                 years=years
             )
+            
+            # Processar dados de Licença Sanitária - Renovação (coluna 'Relatório Status detalhado acionamento')
+            licenca_sanitaria_data = None
+            try:
+                licenca_sanitaria_status_column = 'Relatório Status detalhado acionamento'
+                licenca_sanitaria_data = process_enel_legalizacao_data(
+                    data=sheet_data,
+                    status_column=licenca_sanitaria_status_column,
+                    years=years
+                )
+                # Adicionar aos dados processados
+                processed_data['licenca_sanitaria'] = licenca_sanitaria_data
+            except Exception as e:
+                logger.warning(f"Erro ao processar dados de Licença Sanitária: {e}")
+                # Adicionar dados vazios se não conseguir processar
+                processed_data['licenca_sanitaria'] = {
+                    'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+                    'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                    'em_andamento': {
+                        'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                        'subcategorias': []
+                    }
+                }
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
             if "não encontrada" in str(ve):
