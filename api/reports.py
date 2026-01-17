@@ -277,11 +277,14 @@ def generate_pdf(client_id):
     # Separar comentários por página
     alvaras_comments = []
     licenca_comments = []
+    anuencia_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
             if page == 'Licença Sanitária - Renovação':
                 licenca_comments.append(comment)
+            elif page == 'Anuência Ambiental':
+                anuencia_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -863,6 +866,7 @@ def generate_pdf(client_id):
         comments=comments,
         alvaras_comments=alvaras_comments,
         licenca_comments=licenca_comments,
+        anuencia_comments=anuencia_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
