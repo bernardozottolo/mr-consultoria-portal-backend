@@ -599,6 +599,28 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Seção de Comentários dentro da página 7 (sem quebra de página) -->
+        {% if certificado_bombeiro_comments %}
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
+            <div class="comments-content">
+                <ul>
+                    {% for comment in certificado_bombeiro_comments %}
+                    <li>
+                        {% if comment is string %}
+                        {{ comment|safe }}
+                        {% elif comment.title %}
+                        <strong>{{ comment.title }}:</strong> {{ comment.text|safe }}
+                        {% else %}
+                        {{ comment.text|safe }}
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 </body>
