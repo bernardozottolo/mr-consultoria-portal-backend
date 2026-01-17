@@ -993,13 +993,11 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             }
         }
     
-    # Encontrar índice da coluna de status (case-insensitive, com trim e normalização de quebras de linha)
+    # Encontrar índice da coluna de status (case-insensitive, com trim)
     status_col_idx = None
-    status_column_normalized = ' '.join(status_column.split()).lower()
+    status_column_normalized = status_column.strip().lower()
     for idx, header in enumerate(headers):
-        # Normalizar o header da planilha (remover quebras de linha, espaços extras)
-        header_normalized = ' '.join(str(header).replace('\n', ' ').replace('\r', ' ').split()).lower()
-        if header_normalized == status_column_normalized:
+        if header.strip().lower() == status_column_normalized:
             status_col_idx = idx
             break
     
@@ -1018,14 +1016,11 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             'requested_column': status_column
         }
     
-    # Encontrar índice da coluna 'ano Acionamento' (case-insensitive, com trim e normalização de quebras de linha)
+    # Encontrar índice da coluna 'ano Acionamento' (case-insensitive, com trim)
     year_column_name = 'ano Acionamento'
-    year_column_normalized = ' '.join(year_column_name.split()).lower()
     year_col_idx = None
     for idx, header in enumerate(headers):
-        # Normalizar o header da planilha (remover quebras de linha, espaços extras)
-        header_normalized = ' '.join(str(header).replace('\n', ' ').replace('\r', ' ').split()).lower()
-        if header_normalized == year_column_normalized:
+        if header.strip().lower() == year_column_name.lower():
             year_col_idx = idx
             break
     
@@ -1048,12 +1043,8 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
     natureza_col_idx = None
     if filter_natureza:
         natureza_column_name = 'Relatório Natureza da Operação'
-        # Normalizar o nome da coluna esperado (remover quebras de linha e espaços extras)
-        natureza_column_normalized = ' '.join(natureza_column_name.split()).lower()
         for idx, header in enumerate(headers):
-            # Normalizar o header da planilha (remover quebras de linha, espaços extras)
-            header_normalized = ' '.join(str(header).replace('\n', ' ').replace('\r', ' ').split()).lower()
-            if header_normalized == natureza_column_normalized:
+            if header.strip().lower() == natureza_column_name.lower():
                 natureza_col_idx = idx
                 break
         
@@ -1088,10 +1079,7 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         # Aplicar filtro de natureza da operação se necessário
         if filter_natureza and natureza_col_idx is not None:
             natureza_value = str(row[natureza_col_idx]).strip() if natureza_col_idx < len(row) else ""
-            # Normalizar ambos os valores (remover quebras de linha e espaços extras) para comparação
-            natureza_value_normalized = ' '.join(natureza_value.replace('\n', ' ').replace('\r', ' ').split()).lower()
-            filter_natureza_normalized = ' '.join(filter_natureza.replace('\n', ' ').replace('\r', ' ').split()).lower()
-            if natureza_value_normalized != filter_natureza_normalized:
+            if natureza_value.lower() != filter_natureza.lower():
                 continue  # Pular linhas que não correspondem ao filtro
         
         # Obter status
