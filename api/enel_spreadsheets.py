@@ -1025,11 +1025,13 @@ def process_enel_legalizacao_data(
         if not status_value:
             rows_skipped_empty_status += 1
             continue
+        if len(status_value_samples) < 5:
+            status_value_samples.append(status_value)
+
+        # Normalizar status e aplicar exclusões, se houver
         status_normalized = ' '.join(status_value.split()).lower()
         if status_exclude_normalized and status_normalized in status_exclude_normalized:
             continue
-        if len(status_value_samples) < 5:
-            status_value_samples.append(status_value)
         
         # Obter ano da coluna configurada
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
