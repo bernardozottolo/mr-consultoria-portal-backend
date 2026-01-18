@@ -282,6 +282,7 @@ def generate_pdf(client_id):
     legalizacao_sp_comments = []
     servicos_diversos_sp_comments = []
     legalizacao_rj_comments = []
+    legalizacao_rj_bombeiro_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -297,6 +298,8 @@ def generate_pdf(client_id):
                 servicos_diversos_sp_comments.append(comment)
             elif page == 'Visão Geral - Alvarás de Funcionamento (RJ)':
                 legalizacao_rj_comments.append(comment)
+            elif page == 'Certificado de Aprovação dos Bombeiros (RJ)':
+                legalizacao_rj_bombeiro_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -792,7 +795,8 @@ def generate_pdf(client_id):
                 status_column_override='Status Geral do imóvel',
                 year_column_name='Ano Acionamento',
                 year_parse_mode='extract_year',
-                concluido_statuses=['CA emitido']
+                concluido_statuses=['CA emitido'],
+                status_exclude=['*']
             )
             if isinstance(bombeiro_result, tuple) and len(bombeiro_result) > 0:
                 if bombeiro_result[1] == 200:
@@ -841,6 +845,7 @@ def generate_pdf(client_id):
         legalizacao_sp_comments=legalizacao_sp_comments,
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         legalizacao_rj_comments=legalizacao_rj_comments,
+        legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )

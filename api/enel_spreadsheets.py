@@ -602,6 +602,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         cancelado_statuses = None
         if cancelado_statuses_param:
             cancelado_statuses = [v.strip() for v in cancelado_statuses_param.split(',') if v.strip()]
+        status_exclude_param = request.args.get('status_exclude', None)
+        status_exclude = None
+        if status_exclude_param:
+            status_exclude = [v.strip() for v in status_exclude_param.split(',') if v.strip()]
 
         
         if not years:
@@ -672,7 +676,8 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 item_column=item_column,
                 item_not_equals=item_not_equals,
                 concluido_statuses=concluido_statuses,
-                cancelado_statuses=cancelado_statuses
+                cancelado_statuses=cancelado_statuses,
+                status_exclude=status_exclude
             )
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
@@ -718,6 +723,7 @@ def _get_enel_spreadsheet_data_internal(
     item_not_equals: str = None,
     concluido_statuses: list = None,
     cancelado_statuses: list = None,
+    status_exclude: list = None,
     status_column_override: str = None
 ):
     """
@@ -814,7 +820,8 @@ def _get_enel_spreadsheet_data_internal(
         item_column=item_column,
         item_not_equals=item_not_equals,
         concluido_statuses=concluido_statuses,
-        cancelado_statuses=cancelado_statuses
+        cancelado_statuses=cancelado_statuses,
+        status_exclude=status_exclude
     )
     
     return jsonify(processed_data), 200
@@ -830,7 +837,8 @@ def process_enel_legalizacao_data(
     item_column: str = None,
     item_not_equals: str = None,
     concluido_statuses: list = None,
-    cancelado_statuses: list = None
+    cancelado_statuses: list = None,
+    status_exclude: list = None
 ) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
@@ -1017,6 +1025,9 @@ def process_enel_legalizacao_data(
         if not status_value:
             rows_skipped_empty_status += 1
             continue
+        status_normalized = ' '.join(status_value.split()).lower()
+        if status_exclude_normalized and status_normalized in status_exclude_normalized:
+            continue
         if len(status_value_samples) < 5:
             status_value_samples.append(status_value)
         
@@ -1068,9 +1079,6 @@ def process_enel_legalizacao_data(
             rows_skipped_year_not_in_range += 1
             continue  # Pular anos fora do range solicitado
         
-        # Normalizar status (case-insensitive, remover espaços extras)
-        status_normalized = ' '.join(status_value.split()).lower()
-        
         if status_normalized not in status_counts:
             status_counts[status_normalized] = {
                 'original': status_value,  # Manter original para exibição
@@ -1092,10 +1100,13 @@ def process_enel_legalizacao_data(
     em_andamento_subcategorias = []
     concluido_values_normalized = None
     cancelado_values_normalized = None
+    status_exclude_normalized = None
     if concluido_statuses:
         concluido_values_normalized = {' '.join(v.split()).lower() for v in concluido_statuses if isinstance(v, str)}
     if cancelado_statuses:
         cancelado_values_normalized = {' '.join(v.split()).lower() for v in cancelado_statuses if isinstance(v, str)}
+    if status_exclude:
+        status_exclude_normalized = {' '.join(v.split()).lower() for v in status_exclude if isinstance(v, str)}
     
     for status_norm, status_info in status_counts.items():
         if concluido_values_normalized is not None:
