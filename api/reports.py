@@ -562,6 +562,7 @@ def generate_pdf(client_id):
     legalizacao_sp_data = None
     legalizacao_sp_servicos_data = None
     legalizacao_rj_data = None
+    legalizacao_rj_bombeiro_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -782,6 +783,35 @@ def generate_pdf(client_id):
                 for subcat in legalizacao_rj_data.get('em_andamento', {}).get('subcategorias', []):
                     if subcat.get('years'):
                         subcat['years'] = convert_years_keys(subcat['years'])
+
+            # Certificado de Aprovação dos Bombeiros (RJ) - aba "Base Bombeiro"
+            bombeiro_result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name='LEGALIZAÇÃO RJ_28-04',
+                years=years,
+                sheet_name='Base Bombeiro',
+                status_column_override='Status Geral do imóvel',
+                year_column_name='Ano Acionamento',
+                year_parse_mode='extract_year',
+                concluido_statuses=['CA emitido']
+            )
+            if isinstance(bombeiro_result, tuple) and len(bombeiro_result) > 0:
+                if bombeiro_result[1] == 200:
+                    legalizacao_rj_bombeiro_data = bombeiro_result[0].get_json() if hasattr(bombeiro_result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Bombeiros RJ: status {bombeiro_result[1]}")
+            elif hasattr(bombeiro_result, 'get_json'):
+                legalizacao_rj_bombeiro_data = bombeiro_result.get_json()
+
+            if legalizacao_rj_bombeiro_data:
+                if legalizacao_rj_bombeiro_data.get('total_demandado', {}).get('years'):
+                    legalizacao_rj_bombeiro_data['total_demandado']['years'] = convert_years_keys(legalizacao_rj_bombeiro_data['total_demandado']['years'])
+                if legalizacao_rj_bombeiro_data.get('concluidos', {}).get('years'):
+                    legalizacao_rj_bombeiro_data['concluidos']['years'] = convert_years_keys(legalizacao_rj_bombeiro_data['concluidos']['years'])
+                if legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_rj_bombeiro_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_rj_bombeiro_data['em_andamento']['total']['years'])
+                for subcat in legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
     
@@ -798,6 +828,7 @@ def generate_pdf(client_id):
         legalizacao_sp_data=legalizacao_sp_data,
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
         legalizacao_rj_data=legalizacao_rj_data,
+        legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
