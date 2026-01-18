@@ -1026,6 +1026,12 @@ def process_enel_legalizacao_data(
     rows_before_filter = 0
     rows_after_filter = 0
     rows_filtered_out = 0
+    rows_skipped_empty_status = 0
+    rows_skipped_empty_year = 0
+    rows_skipped_year_parse = 0
+    rows_skipped_year_not_in_range = 0
+    status_value_samples = []
+    year_value_samples = []
     for row in rows:
         rows_before_filter += 1
         
@@ -1075,12 +1081,22 @@ def process_enel_legalizacao_data(
         # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
         if not status_value:
+            rows_skipped_empty_status += 1
             continue
+        if len(status_value_samples) < 5:
+            status_value_samples.append(status_value)
         
         # Obter ano da coluna configurada
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
         if not year_value_str:
+            rows_skipped_empty_year += 1
             continue  # Pular linhas sem ano
+        if len(year_value_samples) < 5:
+            year_value_samples.append({
+                'raw': row[year_col_idx],
+                'type': type(row[year_col_idx]).__name__,
+                'str': year_value_str
+            })
         
         # Interpretar ano conforme modo
         if year_parse_mode == 'last4':
@@ -1104,10 +1120,12 @@ def process_enel_legalizacao_data(
                 row_year = int(float(year_value_str))
             except (ValueError, TypeError):
                 # Se não conseguir converter, pular a linha
+                rows_skipped_year_parse += 1
                 continue
         
         # Verificar se o ano está na lista de anos solicitados
         if row_year not in years:
+            rows_skipped_year_not_in_range += 1
             continue  # Pular anos fora do range solicitado
         
         # Normalizar status (case-insensitive, remover espaços extras)
@@ -1138,9 +1156,15 @@ def process_enel_legalizacao_data(
                 'rows_before_filter': rows_before_filter,
                 'rows_after_filter': rows_after_filter,
                 'rows_filtered_out': rows_filtered_out,
+                'rows_skipped_empty_status': rows_skipped_empty_status,
+                'rows_skipped_empty_year': rows_skipped_empty_year,
+                'rows_skipped_year_parse': rows_skipped_year_parse,
+                'rows_skipped_year_not_in_range': rows_skipped_year_not_in_range,
                 'total_all': total_all,
                 'year_parse_mode': year_parse_mode,
-                'status_counts_sample': list(status_counts.keys())[:6]
+                'status_counts_sample': list(status_counts.keys())[:6],
+                'status_value_samples': status_value_samples,
+                'year_value_samples': year_value_samples
             },
             'timestamp': int(datetime.now().timestamp() * 1000)
         }) + '\n')
