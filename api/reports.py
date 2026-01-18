@@ -673,6 +673,7 @@ def generate_pdf(client_id):
     licenca_sanitaria_data = None
     anuencia_ambiental_data = None
     certificado_bombeiro_data = None
+    legalizacao_sp_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -810,6 +811,40 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
+
+    # Buscar dados de Legalização SP se SP estiver na lista
+    if 'SP' in legalizacao_lista:
+        try:
+            from .enel_spreadsheets import get_enel_spreadsheet_data
+
+            spreadsheet_name_sp = 'Legalização SP'
+            years_str = ','.join(map(str, years))
+            with current_app.test_request_context(
+                path=f'/api/enel-spreadsheets/{spreadsheet_name_sp}/data',
+                query_string=f'years={years_str}',
+                headers={'Authorization': request.headers.get('Authorization', '')}
+            ):
+                result = get_enel_spreadsheet_data(spreadsheet_name_sp)
+                if hasattr(result, 'get_json'):
+                    legalizacao_sp_data = result.get_json()
+                elif isinstance(result, tuple) and len(result) > 0:
+                    if result[1] == 200:
+                        legalizacao_sp_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                    else:
+                        logger.warning(f"Erro ao buscar dados de Legalização SP: status {result[1]}")
+
+            if legalizacao_sp_data:
+                if legalizacao_sp_data.get('total_demandado', {}).get('years'):
+                    legalizacao_sp_data['total_demandado']['years'] = convert_years_keys(legalizacao_sp_data['total_demandado']['years'])
+                if legalizacao_sp_data.get('concluidos', {}).get('years'):
+                    legalizacao_sp_data['concluidos']['years'] = convert_years_keys(legalizacao_sp_data['concluidos']['years'])
+                if legalizacao_sp_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_sp_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_sp_data['em_andamento']['total']['years'])
+                for subcat in legalizacao_sp_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Legalização SP: {e}", exc_info=True)
     
     # Renderizar template HTML
     html_content = render_template(
@@ -824,6 +859,7 @@ def generate_pdf(client_id):
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
+        legalizacao_sp_data=legalizacao_sp_data,
         years=years,
         comments=comments,
         alvaras_comments=alvaras_comments,
