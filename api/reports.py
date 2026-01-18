@@ -279,6 +279,7 @@ def generate_pdf(client_id):
     licenca_comments = []
     anuencia_comments = []
     certificado_bombeiro_comments = []
+    legalizacao_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -288,6 +289,8 @@ def generate_pdf(client_id):
                 anuencia_comments.append(comment)
             elif page == 'Certificado de aprovação Bombeiro':
                 certificado_bombeiro_comments.append(comment)
+            elif page == 'Alvarás de Funcionamento - Renovação (SP)':
+                legalizacao_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -860,6 +863,7 @@ def generate_pdf(client_id):
         licenca_comments=licenca_comments,
         anuencia_comments=anuencia_comments,
         certificado_bombeiro_comments=certificado_bombeiro_comments,
+        legalizacao_sp_comments=legalizacao_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
