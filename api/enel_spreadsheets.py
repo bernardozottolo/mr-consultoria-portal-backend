@@ -7,6 +7,7 @@ from .auth import login_required
 from . import config
 from data.database import get_db_connection
 import os
+import re
 import logging
 from pathlib import Path
 import json
@@ -1188,10 +1189,15 @@ def process_enel_legalizacao_data(
                 rows_skipped_year_too_short += 1
                 continue
             year_suffix = year_value_str[-4:]
-            if not year_suffix.isdigit():
-                rows_skipped_year_suffix_nondigit += 1
-                continue
-            row_year = int(year_suffix)
+            if year_suffix.isdigit():
+                row_year = int(year_suffix)
+            else:
+                # Tentar extrair ano dentro de strings com data/hora (ex: "2024-07-22 00:00:00")
+                year_match = re.search(r'(19|20)\d{2}', year_value_str)
+                if not year_match:
+                    rows_skipped_year_suffix_nondigit += 1
+                    continue
+                row_year = int(year_match.group(0))
         else:
             # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
             try:
