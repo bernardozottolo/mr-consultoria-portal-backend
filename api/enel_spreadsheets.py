@@ -1119,6 +1119,15 @@ def process_enel_legalizacao_data(
     rows_before_filter = 0
     rows_after_filter = 0
     rows_filtered_out = 0
+    rows_skipped_short = 0
+    rows_skipped_empty_status = 0
+    rows_skipped_empty_year = 0
+    rows_skipped_year_nao_acionado = 0
+    rows_skipped_year_too_short = 0
+    rows_skipped_year_suffix_nondigit = 0
+    rows_skipped_year_not_in_range = 0
+    year_value_samples = []
+    status_value_samples = []
     
     for row in rows:
         rows_before_filter += 1
@@ -1128,6 +1137,7 @@ def process_enel_legalizacao_data(
         if natureza_col_idx is not None:
             required_indices.append(natureza_col_idx)
         if len(row) <= max(required_indices):
+            rows_skipped_short += 1
             continue
         
         # Aplicar filtro de natureza da operação se necessário
@@ -1152,21 +1162,34 @@ def process_enel_legalizacao_data(
         # Obter status
         status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
         if not status_value:
+            rows_skipped_empty_status += 1
             continue
+        if len(status_value_samples) < 5:
+            status_value_samples.append(status_value)
         
         # Obter ano da coluna configurada
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
         if not year_value_str:
+            rows_skipped_empty_year += 1
             continue  # Pular linhas sem ano
+        if len(year_value_samples) < 5:
+            year_value_samples.append({
+                'raw': row[year_col_idx],
+                'type': type(row[year_col_idx]).__name__,
+                'str': year_value_str
+            })
         
         # Interpretar ano conforme modo
         if year_parse_mode == 'last4':
             if year_value_str.lower() == 'não acionado':
+                rows_skipped_year_nao_acionado += 1
                 continue
             if len(year_value_str) < 4:
+                rows_skipped_year_too_short += 1
                 continue
             year_suffix = year_value_str[-4:]
             if not year_suffix.isdigit():
+                rows_skipped_year_suffix_nondigit += 1
                 continue
             row_year = int(year_suffix)
         else:
@@ -1180,6 +1203,7 @@ def process_enel_legalizacao_data(
         
         # Verificar se o ano está na lista de anos solicitados
         if row_year not in years:
+            rows_skipped_year_not_in_range += 1
             continue  # Pular anos fora do range solicitado
         
         # Normalizar status (case-insensitive, remover espaços extras)
@@ -1212,9 +1236,18 @@ def process_enel_legalizacao_data(
                 'rows_before_filter': rows_before_filter,
                 'rows_after_filter': rows_after_filter,
                 'rows_filtered_out': rows_filtered_out,
+                'rows_skipped_short': rows_skipped_short,
+                'rows_skipped_empty_status': rows_skipped_empty_status,
+                'rows_skipped_empty_year': rows_skipped_empty_year,
+                'rows_skipped_year_nao_acionado': rows_skipped_year_nao_acionado,
+                'rows_skipped_year_too_short': rows_skipped_year_too_short,
+                'rows_skipped_year_suffix_nondigit': rows_skipped_year_suffix_nondigit,
+                'rows_skipped_year_not_in_range': rows_skipped_year_not_in_range,
                 'total_all': total_all,
                 'year_parse_mode': year_parse_mode,
-                'unique_statuses_sample': list({v.get('original') for v in status_counts.values()})[:10]
+                'unique_statuses_sample': list({v.get('original') for v in status_counts.values()})[:10],
+                'status_value_samples': status_value_samples,
+                'year_value_samples': year_value_samples
             },
             'timestamp': int(datetime.now().timestamp() * 1000)
         }) + '\n')
