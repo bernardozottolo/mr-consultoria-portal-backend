@@ -958,6 +958,17 @@ def process_enel_legalizacao_data(
             }
 
     
+    # Normalizações de status para filtros/agrupamentos
+    concluido_values_normalized = None
+    cancelado_values_normalized = None
+    status_exclude_normalized = None
+    if concluido_statuses:
+        concluido_values_normalized = {' '.join(v.split()).lower() for v in concluido_statuses if isinstance(v, str)}
+    if cancelado_statuses:
+        cancelado_values_normalized = {' '.join(v.split()).lower() for v in cancelado_statuses if isinstance(v, str)}
+    if status_exclude:
+        status_exclude_normalized = {' '.join(v.split()).lower() for v in status_exclude if isinstance(v, str)}
+
     # Processar linhas
     status_counts = {}
     total_by_year = {year: 0 for year in years}
@@ -1100,15 +1111,6 @@ def process_enel_legalizacao_data(
     concluidos_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
     cancelados_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
     em_andamento_subcategorias = []
-    concluido_values_normalized = None
-    cancelado_values_normalized = None
-    status_exclude_normalized = None
-    if concluido_statuses:
-        concluido_values_normalized = {' '.join(v.split()).lower() for v in concluido_statuses if isinstance(v, str)}
-    if cancelado_statuses:
-        cancelado_values_normalized = {' '.join(v.split()).lower() for v in cancelado_statuses if isinstance(v, str)}
-    if status_exclude:
-        status_exclude_normalized = {' '.join(v.split()).lower() for v in status_exclude if isinstance(v, str)}
     
     for status_norm, status_info in status_counts.items():
         if concluido_values_normalized is not None:
