@@ -607,6 +607,28 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         if status_exclude_param:
             status_exclude = [v.strip() for v in status_exclude_param.split(',') if v.strip()]
 
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'B',
+                'location': 'enel_spreadsheets.py:595',
+                'message': 'RJ endpoint params',
+                'data': {
+                    'spreadsheet_name': spreadsheet_name,
+                    'sheet_name': sheet_name,
+                    'status_column': status_column,
+                    'year_column_name': year_column_name,
+                    'year_parse_mode': year_parse_mode,
+                    'status_exclude': status_exclude
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
+
         
         if not years:
             years = [2024, 2025]  # Fallback
@@ -630,6 +652,22 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 sheet_name=sheet_name,  # None = primeira aba automaticamente
                 header=header_row
             )
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'B',
+                    'location': 'enel_spreadsheets.py:623',
+                    'message': 'RJ headers loaded',
+                    'data': {
+                        'headers_count': len(sheet_data.get('headers', [])),
+                        'headers_sample': sheet_data.get('headers', [])[:25],
+                        'rows_count': len(sheet_data.get('values', []))
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
         except FileNotFoundError as e:
             logger.error(f"Arquivo não encontrado: {e}")
             # Tentar buscar por nome similar no diretório
