@@ -3,8 +3,8 @@ from .auth import login_required
 from . import config
 import os
 import json
-import logging
 import re
+import logging
 from pathlib import Path
 from datetime import datetime
 try:
@@ -71,6 +71,7 @@ def _build_regularizacao_sp_macroprocess(sheet_data: dict):
         return {
             'items': [],
             'total_all': 0,
+            'macro_idx': None,
             'warning': "Coluna 'Macroprocesso' não encontrada",
             'available_columns': headers
         }
@@ -83,26 +84,6 @@ def _build_regularizacao_sp_macroprocess(sheet_data: dict):
         if not raw_value or raw_value.lower() in ('nan', 'none'):
             continue
         counts[raw_value] = counts.get(raw_value, 0) + 1
-
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'B',
-            'location': 'reports.py:64',
-            'message': 'Regularizacao SP macroprocess summary',
-            'data': {
-                'headers_count': len(headers),
-                'rows_count': len(rows),
-                'macro_idx': macro_idx,
-                'unique_macroprocesso_count': len(counts)
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
 
     def sort_key(name: str):
         match = re.match(r'\s*(\d+)', name)
@@ -119,14 +100,10 @@ def _build_regularizacao_sp_macroprocess(sheet_data: dict):
             'percentage': round(percentage, 2)
         })
 
-    chart_max = max((item['total'] for item in items), default=0)
     return {
         'items': items,
         'total_all': total_all,
-        'chart': {
-            'max_total': chart_max,
-            'items': items
-        }
+        'macro_idx': macro_idx
     }
 
 @reports_bp.route('/regularizacao/sp', methods=['GET'])
@@ -143,8 +120,8 @@ def get_regularizacao_sp():
         f.write(json.dumps({
             'sessionId': 'debug-session',
             'runId': 'run1',
-            'hypothesisId': 'C',
-            'location': 'reports.py:112',
+            'hypothesisId': 'A',
+            'location': 'reports.py:94',
             'message': 'Regularizacao SP endpoint',
             'data': {
                 'spreadsheet_name': spreadsheet_name,
@@ -163,6 +140,24 @@ def get_regularizacao_sp():
         header=None
     )
     processed = _build_regularizacao_sp_macroprocess(sheet_data)
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B',
+            'location': 'reports.py:121',
+            'message': 'Regularizacao SP processed',
+            'data': {
+                'headers_count': len(sheet_data.get('headers', [])),
+                'rows_count': len(sheet_data.get('values', [])),
+                'macro_idx': processed.get('macro_idx'),
+                'items_count': len(processed.get('items', [])),
+                'total_all': processed.get('total_all')
+            },
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
     return jsonify(processed), 200
 
 @reports_bp.route('/clients', methods=['GET'])
@@ -268,26 +263,6 @@ def generate_pdf(client_id):
     if not regularizacao_lista:
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
     
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A',
-            'location': 'reports.py:121',
-            'message': 'PDF params: legalizacao/regularizacao',
-            'data': {
-                'legalizacao_param': legalizacao_param,
-                'regularizacao_param': regularizacao_param,
-                'legalizacao_lista': legalizacao_lista,
-                'regularizacao_lista': regularizacao_lista
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
     # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
     estados_param = request.args.get('estados', 'CE&SP&RJ')
     # Validar e limpar estados
@@ -320,7 +295,6 @@ def generate_pdf(client_id):
     servicos_diversos_sp_comments = []
     legalizacao_rj_comments = []
     legalizacao_rj_bombeiro_comments = []
-    regularizacao_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -338,8 +312,6 @@ def generate_pdf(client_id):
                 legalizacao_rj_comments.append(comment)
             elif page == 'Certificado de Aprovação dos Bombeiros (RJ)':
                 legalizacao_rj_bombeiro_comments.append(comment)
-            elif page == 'Regularização - SP':
-                regularizacao_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -606,7 +578,6 @@ def generate_pdf(client_id):
     legalizacao_sp_servicos_data = None
     legalizacao_rj_data = None
     legalizacao_rj_bombeiro_data = None
-    regularizacao_sp_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -859,38 +830,6 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
-
-    if 'SP' in regularizacao_lista:
-        try:
-            file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
-            if file_path_obj:
-                sheet_data = read_spreadsheet_file(
-                    file_path=str(file_path_obj),
-                    sheet_name=None,
-                    header=None
-                )
-                regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
-                # #region agent log
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'A,B',
-                        'location': 'reports.py:870',
-                        'message': 'Regularizacao SP data built',
-                        'data': {
-                            'file_path': str(file_path_obj),
-                            'items_count': len(regularizacao_sp_data.get('items', [])) if regularizacao_sp_data else 0,
-                            'total_all': regularizacao_sp_data.get('total_all') if regularizacao_sp_data else None,
-                            'has_chart': bool(regularizacao_sp_data.get('chart')) if regularizacao_sp_data else False
-                        },
-                        'timestamp': int(datetime.now().timestamp() * 1000)
-                    }) + '\n')
-                # #endregion
-            else:
-                logger.warning("Planilha Regularizações SP não encontrada")
-        except Exception as e:
-            logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
     
     # Renderizar template HTML
     html_content = render_template(
@@ -906,7 +845,6 @@ def generate_pdf(client_id):
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
         legalizacao_rj_data=legalizacao_rj_data,
         legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
-        regularizacao_sp_data=regularizacao_sp_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
@@ -920,7 +858,6 @@ def generate_pdf(client_id):
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         legalizacao_rj_comments=legalizacao_rj_comments,
         legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
-        regularizacao_sp_comments=regularizacao_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
