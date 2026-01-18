@@ -281,6 +281,7 @@ def generate_pdf(client_id):
     certificado_bombeiro_comments = []
     legalizacao_sp_comments = []
     servicos_diversos_sp_comments = []
+    legalizacao_rj_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -294,6 +295,8 @@ def generate_pdf(client_id):
                 legalizacao_sp_comments.append(comment)
             elif page == 'Serviços Diversos (SP)':
                 servicos_diversos_sp_comments.append(comment)
+            elif page == 'Visão Geral - Alvarás de Funcionamento (RJ)':
+                legalizacao_rj_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -360,27 +363,6 @@ def generate_pdf(client_id):
     # Remover 'images/' do logo_path se existir e construir caminho completo
     client_logo_filename = client_dict['logo_path'].replace('images/', '').replace('static/images/', '')
     
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A,B,C',
-            'location': 'reports.py:351',
-            'message': 'Dados do cliente obtidos do banco',
-            'data': {
-                'client_id': client_id,
-                'client_id_lower': client_id.lower(),
-                'client_dict': client_dict,
-                'logo_path_from_db': client_dict.get('logo_path'),
-                'client_nome': client_dict.get('nome')
-            },
-            'timestamp': int(dt.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
     # Para ENEL, sempre buscar no frontend primeiro (caminho exato informado pelo usuário)
     # Tentar múltiplos caminhos possíveis para o frontend
     possible_frontend_dirs = [
@@ -393,7 +375,6 @@ def generate_pdf(client_id):
     frontend_enel_path = None
     frontend_images_dir = None
     
-    # #region agent log
     # Listar conteúdo de /app para entender estrutura
     app_dir_contents = []
     if os.path.exists('/app'):
@@ -416,26 +397,6 @@ def generate_pdf(client_id):
                         dirs[:] = []
             except Exception as e:
                 pass
-    
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A',
-            'location': 'reports.py:368',
-            'message': 'Tentando encontrar logo ENEL - listando caminhos',
-            'data': {
-                'possible_paths': [str(p / 'enel-logo.png') for p in possible_frontend_dirs],
-                'paths_exist': [os.path.exists(str(p / 'enel-logo.png')) for p in possible_frontend_dirs],
-                'app_dir_contents': app_dir_contents,
-                'found_enel_logo_paths': found_enel_logo_paths,
-                'root_dir': str(ROOT_DIR),
-                'root_dir_parent': str(ROOT_DIR.parent)
-            },
-            'timestamp': int(dt.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
     # Se encontrou o arquivo na busca, usar o primeiro resultado
     if found_enel_logo_paths:
         frontend_enel_path = found_enel_logo_paths[0]
@@ -449,50 +410,9 @@ def generate_pdf(client_id):
             frontend_enel_path = enel_path_str
             frontend_images_dir = frontend_dir
             logger.info(f"Diretório frontend encontrado: {frontend_dir}, Logo ENEL: {frontend_enel_path}")
-            # #region agent log
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A',
-                    'location': 'reports.py:385',
-                    'message': 'Logo ENEL encontrado!',
-                    'data': {
-                        'found_path': frontend_enel_path,
-                        'found_dir': str(frontend_images_dir)
-                    },
-                    'timestamp': int(dt.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
             break
         else:
             logger.debug(f"Logo ENEL não encontrado em: {enel_path_str}")
-    
-    # #region agent log
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A,B,C',
-            'location': 'reports.py:380',
-            'message': 'Verificando caminhos de logo',
-            'data': {
-                'client_id': client_id,
-                'client_id_lower': client_id.lower(),
-                'is_enel': client_id.lower() == 'enel' or client_dict.get('nome', '').upper() == 'ENEL',
-                'frontend_images_dir': str(frontend_images_dir) if frontend_images_dir else None,
-                'frontend_enel_path': frontend_enel_path,
-                'frontend_enel_exists': os.path.exists(frontend_enel_path) if frontend_enel_path else False,
-                'images_dir': str(images_dir),
-                'client_logo_filename': client_logo_filename,
-                'backend_logo_path': str(images_dir / client_logo_filename),
-                'backend_logo_exists': os.path.exists(str(images_dir / client_logo_filename)),
-                'root_dir': str(ROOT_DIR),
-                'root_dir_parent': str(ROOT_DIR.parent)
-            },
-            'timestamp': int(dt.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
     
     # Determinar caminho do logo do cliente
     client_logo_path = None  # Inicializar variável
@@ -548,24 +468,6 @@ def generate_pdf(client_id):
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
     
-    # #region agent log
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'C',
-            'location': 'reports.py:375',
-            'message': 'APÓS primeira tentativa de conversão',
-            'data': {
-                'client_logo_path': client_logo_path,
-                'client_logo_path_exists': os.path.exists(client_logo_path),
-                'client_logo_base64_length': len(client_logo_base64) if client_logo_base64 else 0,
-                'mr_logo_base64_length': len(mr_logo_base64) if mr_logo_base64 else 0
-            },
-            'timestamp': int(dt.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
-    
     # Se ainda não encontrou o logo do cliente após converter, tentar buscar via HTTP do frontend
     if not client_logo_base64:
         # Para ENEL, tentar baixar via HTTP do container frontend (nginx)
@@ -598,22 +500,6 @@ def generate_pdf(client_id):
                     'http://127.0.0.1/images/enel-logo.png',
                 ])
                 
-                # #region agent log
-                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({
-                        'sessionId': 'debug-session',
-                        'runId': 'run1',
-                        'hypothesisId': 'C',
-                        'location': 'reports.py:520',
-                        'message': 'Tentando baixar logo ENEL via HTTP',
-                        'data': {
-                            'possible_urls': possible_urls,
-                            'request_host': request.host if hasattr(request, 'host') else None
-                        },
-                        'timestamp': int(dt.now().timestamp() * 1000)
-                    }) + '\n')
-                # #endregion
-                
                 for url in possible_urls:
                     try:
                         req = urllib.request.Request(url)
@@ -625,22 +511,6 @@ def generate_pdf(client_id):
                                 base64_str = f"data:image/png;base64,{base64.b64encode(img_data).decode('utf-8')}"
                                 client_logo_base64 = base64_str
                                 logger.info(f"Logo ENEL baixado via HTTP: {url}")
-                                # #region agent log
-                                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                    f.write(json.dumps({
-                                        'sessionId': 'debug-session',
-                                        'runId': 'run1',
-                                        'hypothesisId': 'C',
-                                        'location': 'reports.py:550',
-                                        'message': 'Logo ENEL baixado via HTTP com sucesso!',
-                                        'data': {
-                                            'url': url,
-                                            'base64_length': len(client_logo_base64) if client_logo_base64 else 0,
-                                            'image_size_bytes': len(img_data)
-                                        },
-                                        'timestamp': int(dt.now().timestamp() * 1000)
-                                    }) + '\n')
-                                # #endregion
                                 break
                     except urllib.error.HTTPError as e:
                         logger.debug(f"HTTP {e.code} ao baixar logo de {url}")
@@ -882,28 +752,6 @@ def generate_pdf(client_id):
     if 'RJ' in legalizacao_lista:
         try:
             from .enel_spreadsheets import _get_enel_spreadsheet_data_internal
-            # #region agent log
-            log_dir = Path('.cursor')
-            log_dir.mkdir(exist_ok=True)
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A,B,C',
-                    'location': 'reports.py:886',
-                    'message': 'RJ: chamando _get_enel_spreadsheet_data_internal',
-                    'data': {
-                        'spreadsheet_name': 'LEGALIZAÇÃO RJ_28-04',
-                        'sheet_name': 'Base Alvarás',
-                        'status_column': 'Status detalhado Relatório',
-                        'year_column': 'ano Acionamento',
-                        'concluido_statuses': ['Concluído'],
-                        'cancelado_statuses': ['Cancelado'],
-                        'years': years
-                    },
-                    'timestamp': int(dt.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
             result = _get_enel_spreadsheet_data_internal(
                 spreadsheet_name='LEGALIZAÇÃO RJ_28-04',
                 years=years,
@@ -914,22 +762,6 @@ def generate_pdf(client_id):
                 concluido_statuses=['Concluído'],
                 cancelado_statuses=['Cancelado']
             )
-            # #region agent log
-            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({
-                    'sessionId': 'debug-session',
-                    'runId': 'run1',
-                    'hypothesisId': 'A,B',
-                    'location': 'reports.py:902',
-                    'message': 'RJ: retorno de _get_enel_spreadsheet_data_internal',
-                    'data': {
-                        'result_type': type(result).__name__,
-                        'is_tuple': isinstance(result, tuple),
-                        'status_code': result[1] if isinstance(result, tuple) and len(result) > 1 else None
-                    },
-                    'timestamp': int(dt.now().timestamp() * 1000)
-                }) + '\n')
-            # #endregion
             if isinstance(result, tuple) and len(result) > 0:
                 if result[1] == 200:
                     legalizacao_rj_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
@@ -977,6 +809,7 @@ def generate_pdf(client_id):
         certificado_bombeiro_comments=certificado_bombeiro_comments,
         legalizacao_sp_comments=legalizacao_sp_comments,
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
+        legalizacao_rj_comments=legalizacao_rj_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
