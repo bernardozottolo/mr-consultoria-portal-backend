@@ -4,6 +4,7 @@ from . import config
 import os
 import json
 import logging
+import re
 from pathlib import Path
 from datetime import datetime
 try:
@@ -18,9 +19,113 @@ from data import reports_db
 from data.database import get_db_connection
 import plotly.graph_objs as go
 from .config import ROOT_DIR, IMAGES_DIR
+from .spreadsheet_files import read_spreadsheet_file
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/api', template_folder='templates')
 logger = logging.getLogger(__name__)
+
+def _find_enel_spreadsheet_file(spreadsheet_name: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT file_path, file_name
+        FROM enel_spreadsheets
+        WHERE spreadsheet_name = ?
+    ''', (spreadsheet_name,))
+    result = cursor.fetchone()
+    conn.close()
+    if not result:
+        return None
+
+    file_path = result['file_path']
+    file_name = result['file_name']
+    file_path_obj = Path(file_path) if isinstance(file_path, str) else file_path
+
+    if file_path_obj.exists():
+        return file_path_obj
+
+    if config.SPREADSHEETS_DIR.exists():
+        safe_spreadsheet_id = spreadsheet_name.replace(' ', '_').replace('/', '_').replace('\\', '_') \
+            .replace('á', 'a').replace('Á', 'A').replace('ã', 'a').replace('Ã', 'A')
+        for ext in ['.xlsx', '.xls']:
+            expected_path = config.SPREADSHEETS_DIR / f"ENEL_{safe_spreadsheet_id}{ext}"
+            if expected_path.exists():
+                return expected_path
+
+    if file_name and config.SPREADSHEETS_DIR.exists():
+        alternative_path = config.SPREADSHEETS_DIR / file_name
+        if alternative_path.exists():
+            return alternative_path
+
+    return None
+
+def _build_regularizacao_sp_macroprocess(sheet_data: dict):
+    headers = sheet_data.get('headers', [])
+    rows = sheet_data.get('values', [])
+    macro_idx = None
+    for idx, header in enumerate(headers):
+        if header.strip().lower() == 'macroprocesso':
+            macro_idx = idx
+            break
+    if macro_idx is None:
+        return {
+            'items': [],
+            'total_all': 0,
+            'warning': "Coluna 'Macroprocesso' não encontrada",
+            'available_columns': headers
+        }
+
+    counts = {}
+    for row in rows:
+        if len(row) <= macro_idx:
+            continue
+        raw_value = str(row[macro_idx]).strip()
+        if not raw_value or raw_value.lower() in ('nan', 'none'):
+            continue
+        counts[raw_value] = counts.get(raw_value, 0) + 1
+
+    def sort_key(name: str):
+        match = re.match(r'\s*(\d+)', name)
+        return (int(match.group(1)) if match else 9999, name)
+
+    total_all = sum(counts.values())
+    items = []
+    for name in sorted(counts.keys(), key=sort_key):
+        total = counts[name]
+        percentage = (total / total_all * 100) if total_all else 0.0
+        items.append({
+            'name': name,
+            'total': total,
+            'percentage': round(percentage, 2)
+        })
+
+    chart_max = max((item['total'] for item in items), default=0)
+    return {
+        'items': items,
+        'total_all': total_all,
+        'chart': {
+            'max_total': chart_max,
+            'items': items
+        }
+    }
+
+@reports_bp.route('/regularizacao/sp', methods=['GET'])
+@login_required
+def get_regularizacao_sp():
+    """Retorna dados de Regularização SP (Macroprocesso)"""
+    spreadsheet_name = 'Regularizações SP'
+    sheet_name = request.args.get('sheet_name', None)
+    file_path_obj = _find_enel_spreadsheet_file(spreadsheet_name)
+    if not file_path_obj:
+        return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
+
+    sheet_data = read_spreadsheet_file(
+        file_path=str(file_path_obj),
+        sheet_name=sheet_name,
+        header=None
+    )
+    processed = _build_regularizacao_sp_macroprocess(sheet_data)
+    return jsonify(processed), 200
 
 @reports_bp.route('/clients', methods=['GET'])
 @login_required
@@ -157,6 +262,7 @@ def generate_pdf(client_id):
     servicos_diversos_sp_comments = []
     legalizacao_rj_comments = []
     legalizacao_rj_bombeiro_comments = []
+    regularizacao_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -174,6 +280,8 @@ def generate_pdf(client_id):
                 legalizacao_rj_comments.append(comment)
             elif page == 'Certificado de Aprovação dos Bombeiros (RJ)':
                 legalizacao_rj_bombeiro_comments.append(comment)
+            elif page == 'Regularização - SP':
+                regularizacao_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -440,6 +548,7 @@ def generate_pdf(client_id):
     legalizacao_sp_servicos_data = None
     legalizacao_rj_data = None
     legalizacao_rj_bombeiro_data = None
+    regularizacao_sp_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -692,6 +801,21 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
+
+    if 'SP' in regularizacao_lista:
+        try:
+            file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
+            if file_path_obj:
+                sheet_data = read_spreadsheet_file(
+                    file_path=str(file_path_obj),
+                    sheet_name=None,
+                    header=None
+                )
+                regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
+            else:
+                logger.warning("Planilha Regularizações SP não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
     
     # Renderizar template HTML
     html_content = render_template(
@@ -707,6 +831,7 @@ def generate_pdf(client_id):
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
         legalizacao_rj_data=legalizacao_rj_data,
         legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
+        regularizacao_sp_data=regularizacao_sp_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
@@ -720,6 +845,7 @@ def generate_pdf(client_id):
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         legalizacao_rj_comments=legalizacao_rj_comments,
         legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
+        regularizacao_sp_comments=regularizacao_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
