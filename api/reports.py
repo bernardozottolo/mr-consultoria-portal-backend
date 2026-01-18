@@ -882,6 +882,28 @@ def generate_pdf(client_id):
     if 'RJ' in legalizacao_lista:
         try:
             from .enel_spreadsheets import _get_enel_spreadsheet_data_internal
+            # #region agent log
+            log_dir = Path('.cursor')
+            log_dir.mkdir(exist_ok=True)
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A,B,C',
+                    'location': 'reports.py:886',
+                    'message': 'RJ: chamando _get_enel_spreadsheet_data_internal',
+                    'data': {
+                        'spreadsheet_name': 'LEGALIZAÇÃO RJ_28-04',
+                        'sheet_name': 'Base Alvarás',
+                        'status_column': 'Status detalhado Relatório',
+                        'year_column': 'ano Acionamento',
+                        'concluido_statuses': ['Concluído'],
+                        'cancelado_statuses': ['Cancelado'],
+                        'years': years
+                    },
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
             result = _get_enel_spreadsheet_data_internal(
                 spreadsheet_name='LEGALIZAÇÃO RJ_28-04',
                 years=years,
@@ -891,6 +913,22 @@ def generate_pdf(client_id):
                 concluido_statuses=['Concluído'],
                 cancelado_statuses=['Cancelado']
             )
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A,B',
+                    'location': 'reports.py:902',
+                    'message': 'RJ: retorno de _get_enel_spreadsheet_data_internal',
+                    'data': {
+                        'result_type': type(result).__name__,
+                        'is_tuple': isinstance(result, tuple),
+                        'status_code': result[1] if isinstance(result, tuple) and len(result) > 1 else None
+                    },
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
             if isinstance(result, tuple) and len(result) > 0:
                 if result[1] == 200:
                     legalizacao_rj_data = result[0].get_json() if hasattr(result[0], 'get_json') else None

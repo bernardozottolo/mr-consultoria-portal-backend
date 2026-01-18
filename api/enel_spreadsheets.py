@@ -602,6 +602,33 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         cancelado_statuses = None
         if cancelado_statuses_param:
             cancelado_statuses = [v.strip() for v in cancelado_statuses_param.split(',') if v.strip()]
+
+        # #region agent log
+        log_dir = Path('.cursor')
+        log_dir.mkdir(exist_ok=True)
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A,C',
+                'location': 'enel_spreadsheets.py:585',
+                'message': 'RJ: parâmetros recebidos',
+                'data': {
+                    'spreadsheet_name': spreadsheet_name,
+                    'sheet_name': sheet_name,
+                    'header_row': header_row,
+                    'status_column': status_column,
+                    'year_column_name': year_column_name,
+                    'year_parse_mode': year_parse_mode,
+                    'item_column': item_column,
+                    'item_not_equals': item_not_equals,
+                    'concluido_statuses': concluido_statuses,
+                    'cancelado_statuses': cancelado_statuses,
+                    'years': years
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+        # #endregion
         
         
         if not years:
@@ -626,6 +653,22 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 sheet_name=sheet_name,  # None = primeira aba automaticamente
                 header=header_row
             )
+            # #region agent log
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'A,C',
+                    'location': 'enel_spreadsheets.py:608',
+                    'message': 'RJ: headers carregados',
+                    'data': {
+                        'headers_count': len(sheet_data.get('headers', [])),
+                        'headers_sample': sheet_data.get('headers', [])[:25],
+                        'rows_count': len(sheet_data.get('values', []))
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+            # #endregion
         except FileNotFoundError as e:
             logger.error(f"Arquivo não encontrado: {e}")
             # Tentar buscar por nome similar no diretório
@@ -948,6 +991,30 @@ def process_enel_legalizacao_data(
                 'available_columns': headers,
                 'requested_item_column': item_column
             }
+
+    # #region agent log
+    log_dir = Path('.cursor')
+    log_dir.mkdir(exist_ok=True)
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B,C',
+            'location': 'enel_spreadsheets.py:934',
+            'message': 'RJ: índices resolvidos',
+            'data': {
+                'status_column': status_column,
+                'status_col_idx': status_col_idx,
+                'year_column_name': year_column_name,
+                'year_col_idx': year_col_idx,
+                'item_column': item_column,
+                'item_col_idx': item_col_idx,
+                'headers_at_status': headers[status_col_idx] if status_col_idx is not None and status_col_idx < len(headers) else None,
+                'headers_at_year': headers[year_col_idx] if year_col_idx is not None and year_col_idx < len(headers) else None
+            },
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
     
     # Processar linhas
     status_counts = {}
@@ -1058,6 +1125,26 @@ def process_enel_legalizacao_data(
         total_by_year[row_year] += 1
         status_counts[status_normalized]['total'] += 1
         total_all += 1
+    
+    # #region agent log
+    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps({
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': 'B',
+            'location': 'enel_spreadsheets.py:1010',
+            'message': 'RJ: resumo contagem',
+            'data': {
+                'rows_before_filter': rows_before_filter,
+                'rows_after_filter': rows_after_filter,
+                'rows_filtered_out': rows_filtered_out,
+                'total_all': total_all,
+                'year_parse_mode': year_parse_mode,
+                'status_counts_sample': list(status_counts.keys())[:6]
+            },
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }) + '\n')
+    # #endregion
     
     # Separar Concluídos e outros status
     concluidos_normalized = 'concluído'
