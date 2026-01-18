@@ -820,6 +820,100 @@
         {% endif %}
     </div>
     {% endif %}
+
+    {% if 'RJ' in estados_lista %}
+    <!-- Página: Regional Rio de Janeiro -->
+    <div class="regional-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="regional-title">
+            Regional Rio de Janeiro
+        </h1>
+    </div>
+    {% endif %}
+
+    <!-- Página: Visão Geral - Alvarás de Funcionamento (RJ) -->
+    {% if legalizacao_rj_data and 'RJ' in legalizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">
+            Visão Geral - Alvarás de Funcionamento
+        </h1>
+        
+        <div class="regional-data">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        {% for year in years %}
+                        <th>{{ year }}</th>
+                        {% endfor %}
+                        <th>Total</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-main">
+                        <td><strong>Total Demandado</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_rj_data.total_demandado.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_rj_data.total_demandado.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_rj_data.total_demandado.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <tr class="row-main">
+                        <td><strong>Concluídos</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_rj_data.concluidos.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_rj_data.concluidos.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_rj_data.concluidos.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <tr class="row-main">
+                        <td><strong>Alvarás em Andamento</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_rj_data.em_andamento.total.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_rj_data.em_andamento.total.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_rj_data.em_andamento.total.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    {% for subcat in legalizacao_rj_data.em_andamento.subcategorias %}
+                    <tr class="row-sub">
+                        <td>{{ subcat.name }}</td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ subcat.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td>{{ subcat.total }}</td>
+                        <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
+
+                    <tr class="row-main">
+                        <td><strong>Cancelados</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_rj_data.cancelados.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_rj_data.cancelados.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_rj_data.cancelados.percentage) }}%</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </body>
 </html>
 

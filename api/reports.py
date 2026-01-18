@@ -691,6 +691,7 @@ def generate_pdf(client_id):
     certificado_bombeiro_data = None
     legalizacao_sp_data = None
     legalizacao_sp_servicos_data = None
+    legalizacao_rj_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -877,6 +878,41 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização SP: {e}", exc_info=True)
+
+    if 'RJ' in legalizacao_lista:
+        try:
+            from .enel_spreadsheets import _get_enel_spreadsheet_data_internal
+            result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name='LEGALIZAÇÃO RJ_28-04',
+                years=years,
+                sheet_name='Base Alvarás',
+                status_column_override='Status detalhado Relatório',
+                year_column_name='ano Acionamento',
+                concluido_statuses=['Concluído'],
+                cancelado_statuses=['Cancelado']
+            )
+            if isinstance(result, tuple) and len(result) > 0:
+                if result[1] == 200:
+                    legalizacao_rj_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Legalização RJ: status {result[1]}")
+            elif hasattr(result, 'get_json'):
+                legalizacao_rj_data = result.get_json()
+
+            if legalizacao_rj_data:
+                if legalizacao_rj_data.get('total_demandado', {}).get('years'):
+                    legalizacao_rj_data['total_demandado']['years'] = convert_years_keys(legalizacao_rj_data['total_demandado']['years'])
+                if legalizacao_rj_data.get('concluidos', {}).get('years'):
+                    legalizacao_rj_data['concluidos']['years'] = convert_years_keys(legalizacao_rj_data['concluidos']['years'])
+                if legalizacao_rj_data.get('cancelados', {}).get('years'):
+                    legalizacao_rj_data['cancelados']['years'] = convert_years_keys(legalizacao_rj_data['cancelados']['years'])
+                if legalizacao_rj_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_rj_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_rj_data['em_andamento']['total']['years'])
+                for subcat in legalizacao_rj_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
     
     # Renderizar template HTML
     html_content = render_template(
@@ -890,6 +926,7 @@ def generate_pdf(client_id):
         legalizacao_ce_data=legalizacao_ce_data,
         legalizacao_sp_data=legalizacao_sp_data,
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
+        legalizacao_rj_data=legalizacao_rj_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,

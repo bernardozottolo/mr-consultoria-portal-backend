@@ -598,6 +598,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         concluido_statuses = None
         if concluido_statuses_param:
             concluido_statuses = [v.strip() for v in concluido_statuses_param.split(',') if v.strip()]
+        cancelado_statuses_param = request.args.get('cancelado_statuses', None)
+        cancelado_statuses = None
+        if cancelado_statuses_param:
+            cancelado_statuses = [v.strip() for v in cancelado_statuses_param.split(',') if v.strip()]
         
         
         if not years:
@@ -667,7 +671,8 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 year_parse_mode=year_parse_mode,
                 item_column=item_column,
                 item_not_equals=item_not_equals,
-                concluido_statuses=concluido_statuses
+                concluido_statuses=concluido_statuses,
+                cancelado_statuses=cancelado_statuses
             )
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
@@ -712,6 +717,7 @@ def _get_enel_spreadsheet_data_internal(
     item_column: str = None,
     item_not_equals: str = None,
     concluido_statuses: list = None,
+    cancelado_statuses: list = None,
     status_column_override: str = None
 ):
     """
@@ -807,7 +813,8 @@ def _get_enel_spreadsheet_data_internal(
         year_parse_mode=year_parse_mode,
         item_column=item_column,
         item_not_equals=item_not_equals,
-        concluido_statuses=concluido_statuses
+        concluido_statuses=concluido_statuses,
+        cancelado_statuses=cancelado_statuses
     )
     
     return jsonify(processed_data), 200
@@ -822,7 +829,8 @@ def process_enel_legalizacao_data(
     year_parse_mode: str = None,
     item_column: str = None,
     item_not_equals: str = None,
-    concluido_statuses: list = None
+    concluido_statuses: list = None,
+    cancelado_statuses: list = None
 ) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
@@ -1054,21 +1062,33 @@ def process_enel_legalizacao_data(
     # Separar Concluídos e outros status
     concluidos_normalized = 'concluído'
     concluidos_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
+    cancelados_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
     em_andamento_subcategorias = []
     concluido_values_normalized = None
+    cancelado_values_normalized = None
     if concluido_statuses:
         concluido_values_normalized = {' '.join(v.split()).lower() for v in concluido_statuses if isinstance(v, str)}
+    if cancelado_statuses:
+        cancelado_values_normalized = {' '.join(v.split()).lower() for v in cancelado_statuses if isinstance(v, str)}
     
     for status_norm, status_info in status_counts.items():
         if concluido_values_normalized is not None:
             is_concluido = status_norm in concluido_values_normalized
         else:
             is_concluido = concluidos_normalized in status_norm
+        if cancelado_values_normalized is not None:
+            is_cancelado = status_norm in cancelado_values_normalized
+        else:
+            is_cancelado = False
         if is_concluido:
             # É concluído
             for year in years:
                 concluidos_data['years'][year] += status_info['years'][year]
             concluidos_data['total'] += status_info['total']
+        elif is_cancelado:
+            for year in years:
+                cancelados_data['years'][year] += status_info['years'][year]
+            cancelados_data['total'] += status_info['total']
         else:
             # É subcategoria de "Alvarás em andamento"
             subcat = {
@@ -1089,6 +1109,7 @@ def process_enel_legalizacao_data(
     # Calcular percentuais
     if total_all > 0:
         concluidos_data['percentage'] = (concluidos_data['total'] / total_all) * 100
+        cancelados_data['percentage'] = (cancelados_data['total'] / total_all) * 100
         em_andamento_total['percentage'] = (em_andamento_total['total'] / total_all) * 100
         for subcat in em_andamento_subcategorias:
             subcat['percentage'] = (subcat['total'] / total_all) * 100
@@ -1100,6 +1121,7 @@ def process_enel_legalizacao_data(
             'percentage': 100.0
         },
         'concluidos': concluidos_data,
+        'cancelados': cancelados_data,
         'em_andamento': {
             'total': em_andamento_total,
             'subcategorias': em_andamento_subcategorias
