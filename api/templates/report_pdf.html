@@ -208,6 +208,7 @@
     </div>
     
     <!-- Segunda página: Legalizações -->
+    {% if legalizacao_lista %}
     <div class="legalizacoes-page">
         <div class="header-logos">
             <img src="{{ mr_logo_path }}" alt="MR Consultoria">
@@ -217,6 +218,7 @@
             Legalizações - {{ estados }}
         </h1>
     </div>
+    {% endif %}
     
     <!-- Páginas de Regionais (condicionais) -->
     {% if 'CE' in estados_lista %}

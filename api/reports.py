@@ -17,34 +17,10 @@ except ImportError:
 from data import reports_db
 from data.database import get_db_connection
 import plotly.graph_objs as go
-from .config import ROOT_DIR, REPORT_CONFIG_PATH, IMAGES_DIR
-from .google_sheets import get_spreadsheet_data, parse_status_data
-from .spreadsheet_files import read_spreadsheet_file, parse_status_data as parse_status_data_file
+from .config import ROOT_DIR, IMAGES_DIR
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/api', template_folder='templates')
 logger = logging.getLogger(__name__)
-
-def load_report_config():
-    """Carrega configuração de relatórios do JSON"""
-    try:
-        if not os.path.exists(REPORT_CONFIG_PATH):
-            logger.error(f"Arquivo de configuração não encontrado: {REPORT_CONFIG_PATH}")
-            return None
-        with open(REPORT_CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Erro ao carregar configuração: {str(e)}")
-        return None
-
-def get_spreadsheet_config_for_regional(config_data, regional):
-    """Busca configuração de planilha para uma regional específica"""
-    if not config_data:
-        return None
-    spreadsheets = config_data.get('spreadsheets', [])
-    for sheet_config in spreadsheets:
-        if sheet_config.get('regional') == regional.upper():
-            return sheet_config
-    return None
 
 @reports_bp.route('/clients', methods=['GET'])
 @login_required
@@ -56,108 +32,6 @@ def get_clients():
     clients = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify({'clients': clients})
-
-@reports_bp.route('/reports/<client_id>/data/<regional>', methods=['GET'])
-@login_required
-def get_regional_data(client_id, regional):
-    """Retorna dados de uma regional específica (arquivo ou Google Sheets)"""
-    logger.info(f"Buscando dados para client_id={client_id}, regional={regional}")
-    
-    # Carregar configuração
-    config_data = load_report_config()
-    if not config_data:
-        return jsonify({'error': 'Configuração de relatórios não encontrada'}), 500
-    
-    # Verificar se existe arquivo de planilha no banco de dados
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT file_path, sheet_name, status_column
-        FROM spreadsheets
-        WHERE regional = ?
-    ''', (regional.upper(),))
-    file_config = cursor.fetchone()
-    conn.close()
-    
-    # Obter anos da query string ou usar padrão
-    years_param = request.args.get('years', '')
-    if years_param:
-        try:
-            years = [int(y.strip()) for y in years_param.split(',') if y.strip()]
-        except ValueError:
-            years = config_data.get('default_years', [])
-    else:
-        years = config_data.get('default_years', [])
-    
-    if not years:
-        years = config_data.get('years', [])
-    
-    status_config = config_data.get('status_config', {})
-    
-    try:
-        # Se existe arquivo, usar arquivo
-        if file_config:
-            logger.info(f"Usando arquivo de planilha para regional {regional}")
-            file_path = file_config['file_path']
-            sheet_name = file_config['sheet_name']
-            status_column = file_config['status_column'] or 'Relatório Status detalhado'
-            
-            # Ler arquivo
-            sheet_data = read_spreadsheet_file(
-                file_path=file_path,
-                sheet_name=sheet_name
-            )
-            
-            # Processar dados
-            processed_data = parse_status_data_file(
-                data=sheet_data,
-                status_column=status_column,
-                years=years,
-                status_config=status_config
-            )
-        else:
-            # Usar Google Sheets (comportamento antigo)
-            logger.info(f"Usando Google Sheets para regional {regional}")
-            sheet_config = get_spreadsheet_config_for_regional(config_data, regional)
-            if not sheet_config:
-                return jsonify({'error': f'Configuração não encontrada para regional {regional}'}), 404
-            
-            spreadsheet_id = sheet_config.get('spreadsheet_id')
-            if not spreadsheet_id:
-                return jsonify({'error': f'Spreadsheet ID não configurado para regional {regional}'}), 400
-            
-            # Buscar dados do Google Sheets
-            sheet_data = get_spreadsheet_data(
-                spreadsheet_id=spreadsheet_id,
-                sheet_name=sheet_config.get('sheet_name'),
-                credentials_path=config.GOOGLE_SERVICE_ACCOUNT_FILE
-            )
-            
-            # Processar dados
-            status_column = sheet_config.get('status_column', 'Relatório Status detalhado')
-            
-            processed_data = parse_status_data(
-                data=sheet_data,
-                status_column=status_column,
-                years=years,
-                status_config=status_config
-            )
-        
-        # Adicionar informações de configuração
-        processed_data['config'] = {
-            'years': years,
-            'columns': config_data.get('columns', {}),
-            'other_statuses_group': status_config.get('other_statuses_group', 'Outros')
-        }
-        
-        return jsonify(processed_data)
-        
-    except Exception as e:
-        logger.error(f"Erro ao buscar dados: {str(e)}", exc_info=True)
-        error_message = str(e)
-        if 'Acesso negado' in error_message or '403' in error_message:
-            error_message = 'Acesso negado. Compartilhe a planilha com: google-sheets-service@mr-consultoria-reports-app.iam.gserviceaccount.com'
-        return jsonify({'error': error_message}), 500
 
 @reports_bp.route('/reports/<client_id>', methods=['GET'])
 @login_required
