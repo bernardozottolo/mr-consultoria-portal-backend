@@ -100,10 +100,24 @@ def _build_regularizacao_sp_macroprocess(sheet_data: dict):
             'percentage': round(percentage, 2)
         })
 
+    chart_max = max((item['total'] for item in items), default=0)
+    chart_items = []
+    for item in items:
+        bar_width = 0
+        if chart_max:
+            bar_width = round(item['total'] / chart_max * 100, 2)
+        chart_items.append({
+            **item,
+            'bar_width': f"{bar_width}%"
+        })
     return {
         'items': items,
         'total_all': total_all,
-        'macro_idx': macro_idx
+        'macro_idx': macro_idx,
+        'chart': {
+            'max_total': chart_max,
+            'items': chart_items
+        }
     }
 
 @reports_bp.route('/regularizacao/sp', methods=['GET'])
@@ -113,24 +127,6 @@ def get_regularizacao_sp():
     spreadsheet_name = 'Regularizações SP'
     sheet_name = request.args.get('sheet_name', None)
     file_path_obj = _find_enel_spreadsheet_file(spreadsheet_name)
-    # #region agent log
-    log_dir = Path('.cursor')
-    log_dir.mkdir(exist_ok=True)
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'A',
-            'location': 'reports.py:94',
-            'message': 'Regularizacao SP endpoint',
-            'data': {
-                'spreadsheet_name': spreadsheet_name,
-                'sheet_name': sheet_name,
-                'file_found': bool(file_path_obj)
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
     if not file_path_obj:
         return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
 
@@ -140,24 +136,6 @@ def get_regularizacao_sp():
         header=None
     )
     processed = _build_regularizacao_sp_macroprocess(sheet_data)
-    # #region agent log
-    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
-        f.write(json.dumps({
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': 'B',
-            'location': 'reports.py:121',
-            'message': 'Regularizacao SP processed',
-            'data': {
-                'headers_count': len(sheet_data.get('headers', [])),
-                'rows_count': len(sheet_data.get('values', [])),
-                'macro_idx': processed.get('macro_idx'),
-                'items_count': len(processed.get('items', [])),
-                'total_all': processed.get('total_all')
-            },
-            'timestamp': int(datetime.now().timestamp() * 1000)
-        }) + '\n')
-    # #endregion
     return jsonify(processed), 200
 
 @reports_bp.route('/clients', methods=['GET'])
@@ -295,6 +273,7 @@ def generate_pdf(client_id):
     servicos_diversos_sp_comments = []
     legalizacao_rj_comments = []
     legalizacao_rj_bombeiro_comments = []
+    regularizacao_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -312,6 +291,8 @@ def generate_pdf(client_id):
                 legalizacao_rj_comments.append(comment)
             elif page == 'Certificado de Aprovação dos Bombeiros (RJ)':
                 legalizacao_rj_bombeiro_comments.append(comment)
+            elif page == 'Regularização - SP':
+                regularizacao_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -578,6 +559,7 @@ def generate_pdf(client_id):
     legalizacao_sp_servicos_data = None
     legalizacao_rj_data = None
     legalizacao_rj_bombeiro_data = None
+    regularizacao_sp_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -830,6 +812,21 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
+
+    if 'SP' in regularizacao_lista:
+        try:
+            file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
+            if file_path_obj:
+                sheet_data = read_spreadsheet_file(
+                    file_path=str(file_path_obj),
+                    sheet_name=None,
+                    header=None
+                )
+                regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
+            else:
+                logger.warning("Planilha Regularizações SP não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
     
     # Renderizar template HTML
     html_content = render_template(
@@ -845,6 +842,7 @@ def generate_pdf(client_id):
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
         legalizacao_rj_data=legalizacao_rj_data,
         legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
+        regularizacao_sp_data=regularizacao_sp_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
@@ -858,6 +856,7 @@ def generate_pdf(client_id):
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         legalizacao_rj_comments=legalizacao_rj_comments,
         legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
+        regularizacao_sp_comments=regularizacao_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
