@@ -518,8 +518,6 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Para outras planilhas, usar coluna padrão 'Relatório Status detalhado'
         if spreadsheet_name == 'ENEL - Legalização CE':
             status_column = 'Relatório Status detalhado acionamento'
-        elif spreadsheet_name == 'Legalização SP':
-            status_column = 'Relatório Status detalhado'
         else:
             status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
         
@@ -672,6 +670,13 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         if filter_natureza:
             from urllib.parse import unquote
             filter_natureza = unquote(filter_natureza)
+
+        # Coluna de ano customizada (ex: Legalização SP)
+        year_column_name = request.args.get('year_column', None)
+        year_parse_mode = request.args.get('year_parse', None)
+        if spreadsheet_name == 'Legalização SP' and not year_column_name:
+            year_column_name = 'Data de acionamento MR'
+            year_parse_mode = 'last4'
         
         
         if not years:
@@ -750,19 +755,14 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             # #endregion
             
             # Processar dados usando a coluna de status determinada acima
-            if spreadsheet_name == 'Legalização SP':
-                processed_data = process_enel_legalizacao_sp_data(
-                    data=sheet_data,
-                    status_column=status_column,
-                    years=years
-                )
-            else:
-                processed_data = process_enel_legalizacao_data(
-                    data=sheet_data,
-                    status_column=status_column,
-                    years=years,
-                    filter_natureza=filter_natureza
-                )
+            processed_data = process_enel_legalizacao_data(
+                data=sheet_data,
+                status_column=status_column,
+                years=years,
+                filter_natureza=filter_natureza,
+                year_column_name=year_column_name,
+                year_parse_mode=year_parse_mode
+            )
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
             if "não encontrada" in str(ve):
@@ -812,7 +812,13 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         return jsonify({'error': f'Erro ao buscar dados: {str(e)}'}), 500
 
 
-def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = None, filter_natureza: str = None):
+def _get_enel_spreadsheet_data_internal(
+    spreadsheet_name: str,
+    years: list = None,
+    filter_natureza: str = None,
+    year_column_name: str = None,
+    year_parse_mode: str = None
+):
     """
     Função interna para obter dados de planilha sem depender do contexto Flask.
     Pode ser chamada diretamente com parâmetros.
@@ -890,6 +896,10 @@ def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = Non
     # Processar dados
     if years is None:
         years = [2024, 2025, 2026]  # Default
+
+    if spreadsheet_name == 'Legalização SP' and not year_column_name:
+        year_column_name = 'Data de acionamento MR'
+        year_parse_mode = 'last4'
     
     # #region agent log
     log_dir = Path('.cursor')
@@ -905,7 +915,9 @@ def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = Non
                 'spreadsheet_name': spreadsheet_name,
                 'filter_natureza': filter_natureza,
                 'years': years,
-                'status_column': status_column
+                'status_column': status_column,
+                'year_column_name': year_column_name,
+                'year_parse_mode': year_parse_mode
             },
             'timestamp': int(datetime.now().timestamp() * 1000)
         }) + '\n')
@@ -915,13 +927,22 @@ def _get_enel_spreadsheet_data_internal(spreadsheet_name: str, years: list = Non
         data=sheet_data,
         status_column=status_column,
         years=years,
-        filter_natureza=filter_natureza
+        filter_natureza=filter_natureza,
+        year_column_name=year_column_name,
+        year_parse_mode=year_parse_mode
     )
     
     return jsonify(processed_data), 200
 
 
-def process_enel_legalizacao_data(data: dict, status_column: str, years: list, filter_natureza: str = None) -> dict:
+def process_enel_legalizacao_data(
+    data: dict,
+    status_column: str,
+    years: list,
+    filter_natureza: str = None,
+    year_column_name: str = None,
+    year_parse_mode: str = None
+) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
     - Total demandado (total de registros)
@@ -970,8 +991,8 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
             'requested_column': status_column
         }
     
-    # Encontrar índice da coluna 'ano Acionamento' (case-insensitive, com trim)
-    year_column_name = 'ano Acionamento'
+    # Encontrar índice da coluna de ano (default: 'ano Acionamento')
+    year_column_name = year_column_name or 'ano Acionamento'
     year_col_idx = None
     for idx, header in enumerate(headers):
         if header.strip().lower() == year_column_name.lower():
@@ -1064,18 +1085,29 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         if not status_value:
             continue
         
-        # Obter ano da coluna 'ano Acionamento'
+        # Obter ano da coluna configurada
         year_value_str = str(row[year_col_idx]).strip() if year_col_idx < len(row) else ""
         if not year_value_str:
             continue  # Pular linhas sem ano
         
-        # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
-        try:
-            # Primeiro tentar converter para float e depois para int (para tratar "2024.0")
-            row_year = int(float(year_value_str))
-        except (ValueError, TypeError):
-            # Se não conseguir converter, pular a linha
-            continue
+        # Interpretar ano conforme modo
+        if year_parse_mode == 'last4':
+            if year_value_str.lower() == 'não acionado':
+                continue
+            if len(year_value_str) < 4:
+                continue
+            year_suffix = year_value_str[-4:]
+            if not year_suffix.isdigit():
+                continue
+            row_year = int(year_suffix)
+        else:
+            # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
+            try:
+                # Primeiro tentar converter para float e depois para int (para tratar "2024.0")
+                row_year = int(float(year_value_str))
+            except (ValueError, TypeError):
+                # Se não conseguir converter, pular a linha
+                continue
         
         # Verificar se o ano está na lista de anos solicitados
         if row_year not in years:
@@ -1132,163 +1164,6 @@ def process_enel_legalizacao_data(data: dict, status_column: str, years: list, f
         for subcat in em_andamento_subcategorias:
             subcat['percentage'] = (subcat['total'] / total_all) * 100
     
-    return {
-        'total_demandado': {
-            'years': total_by_year.copy(),
-            'total': total_all,
-            'percentage': 100.0
-        },
-        'concluidos': concluidos_data,
-        'em_andamento': {
-            'total': em_andamento_total,
-            'subcategorias': em_andamento_subcategorias
-        },
-        'years': years
-    }
-
-
-def process_enel_legalizacao_sp_data(data: dict, status_column: str, years: list) -> dict:
-    """
-    Processa dados da planilha Legalização SP usando:
-    - Coluna de status: 'Relatório Status detalhado'
-    - Coluna de ano: 'Data de acionamento MR' (texto)
-      -> pega os últimos 4 caracteres para identificar o ano
-    """
-    headers = data.get('headers', [])
-    rows = data.get('values', [])
-
-    if not headers or not rows:
-        return {
-            'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
-            'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-            'em_andamento': {
-                'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-                'subcategorias': []
-            }
-        }
-
-    # Encontrar índice da coluna de status (case-insensitive, com trim)
-    status_col_idx = None
-    status_column_normalized = status_column.strip().lower()
-    for idx, header in enumerate(headers):
-        if header.strip().lower() == status_column_normalized:
-            status_col_idx = idx
-            break
-
-    if status_col_idx is None:
-        logger.error(f"Coluna '{status_column}' não encontrada. Colunas disponíveis: {headers}")
-        return {
-            'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
-            'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-            'em_andamento': {
-                'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-                'subcategorias': []
-            },
-            'warning': f"Coluna '{status_column}' não encontrada",
-            'available_columns': headers,
-            'requested_column': status_column
-        }
-
-    # Encontrar índice da coluna 'Data de acionamento MR' (case-insensitive, com trim)
-    year_column_name = 'Data de acionamento MR'
-    year_col_idx = None
-    for idx, header in enumerate(headers):
-        if header.strip().lower() == year_column_name.lower():
-            year_col_idx = idx
-            break
-
-    if year_col_idx is None:
-        logger.warning(f"Coluna '{year_column_name}' não encontrada. Colunas disponíveis: {headers}")
-        return {
-            'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
-            'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-            'em_andamento': {
-                'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
-                'subcategorias': []
-            },
-            'warning': f"Coluna '{year_column_name}' não encontrada",
-            'available_columns': headers,
-            'requested_year_column': year_column_name
-        }
-
-    def extract_year_from_text(value: str) -> int:
-        if value is None:
-            return None
-        value_str = str(value).strip()
-        if not value_str or value_str.lower() == 'não acionado':
-            return None
-        if len(value_str) < 4:
-            return None
-        year_candidate = value_str[-4:]
-        if not year_candidate.isdigit():
-            return None
-        return int(year_candidate)
-
-    # Processar linhas
-    status_counts = {}
-    total_by_year = {year: 0 for year in years}
-    total_all = 0
-
-    for row in rows:
-        # Verificar se a linha tem colunas suficientes
-        if len(row) <= max(status_col_idx, year_col_idx):
-            continue
-
-        status_value = row[status_col_idx].strip() if status_col_idx < len(row) else ""
-        if not status_value:
-            continue
-
-        year_value_raw = row[year_col_idx] if year_col_idx < len(row) else ""
-        row_year = extract_year_from_text(year_value_raw)
-        if row_year is None:
-            continue
-
-        if row_year not in years:
-            continue
-
-        status_normalized = ' '.join(status_value.split()).lower()
-        if status_normalized not in status_counts:
-            status_counts[status_normalized] = {
-                'original': status_value,
-                'years': {year: 0 for year in years},
-                'total': 0
-            }
-
-        status_counts[status_normalized]['years'][row_year] += 1
-        total_by_year[row_year] += 1
-        status_counts[status_normalized]['total'] += 1
-        total_all += 1
-
-    # Separar Concluídos e outros status
-    concluidos_normalized = 'concluído'
-    concluidos_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
-    em_andamento_subcategorias = []
-
-    for status_norm, status_info in status_counts.items():
-        if concluidos_normalized in status_norm:
-            for year in years:
-                concluidos_data['years'][year] += status_info['years'][year]
-            concluidos_data['total'] += status_info['total']
-        else:
-            em_andamento_subcategorias.append({
-                'name': status_info['original'],
-                'years': status_info['years'].copy(),
-                'total': status_info['total'],
-                'percentage': 0.0
-            })
-
-    em_andamento_total = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
-    for subcat in em_andamento_subcategorias:
-        for year in years:
-            em_andamento_total['years'][year] += subcat['years'][year]
-        em_andamento_total['total'] += subcat['total']
-
-    if total_all > 0:
-        concluidos_data['percentage'] = (concluidos_data['total'] / total_all) * 100
-        em_andamento_total['percentage'] = (em_andamento_total['total'] / total_all) * 100
-        for subcat in em_andamento_subcategorias:
-            subcat['percentage'] = (subcat['total'] / total_all) * 100
-
     return {
         'total_demandado': {
             'years': total_by_year.copy(),

@@ -623,9 +623,9 @@
         {% endif %}
     </div>
     {% endif %}
-    
-    <!-- Próxima página: Regional São Paulo -->
-    {% if 'SP' in legalizacao_lista %}
+
+    {% if 'SP' in estados_lista %}
+    <!-- Página: Regional São Paulo -->
     <div class="regional-page">
         <div class="header-logos">
             <img src="{{ mr_logo_path }}" alt="MR Consultoria">
@@ -636,8 +636,8 @@
         </h1>
     </div>
     {% endif %}
-    
-    <!-- Página: Alvarás de Funcionamento - Renovação (Legalização SP) -->
+
+    <!-- Página: Alvarás de Funcionamento - Renovação (SP) -->
     {% if legalizacao_sp_data and 'SP' in legalizacao_lista %}
     <div class="visao-geral-page">
         <div class="header-logos">
@@ -652,54 +652,50 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Indicador</th>
+                        <th>Categoria</th>
                         {% for year in years %}
                         <th>{{ year }}</th>
                         {% endfor %}
-                        <th>TOTAL</th>
-                        <th>Percentual</th>
+                        <th>Total</th>
+                        <th>%</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Total Demandado -->
                     <tr class="row-main">
                         <td><strong>Total Demandado</strong></td>
                         {% for year in years %}
-                        {% set year_key = year %}
+                        {% set year_key = year|int %}
                         <td>{{ legalizacao_sp_data.total_demandado.years.get(year_key, 0) }}</td>
                         {% endfor %}
                         <td><strong>{{ legalizacao_sp_data.total_demandado.total }}</strong></td>
                         <td><strong>{{ "%.1f"|format(legalizacao_sp_data.total_demandado.percentage) }}%</strong></td>
                     </tr>
                     
-                    <!-- Concluídos -->
                     <tr class="row-main">
                         <td><strong>Concluídos</strong></td>
                         {% for year in years %}
-                        {% set year_key = year %}
+                        {% set year_key = year|int %}
                         <td>{{ legalizacao_sp_data.concluidos.years.get(year_key, 0) }}</td>
                         {% endfor %}
                         <td><strong>{{ legalizacao_sp_data.concluidos.total }}</strong></td>
                         <td><strong>{{ "%.1f"|format(legalizacao_sp_data.concluidos.percentage) }}%</strong></td>
                     </tr>
                     
-                    <!-- Em Andamento - Total -->
                     <tr class="row-main">
-                        <td><strong>Em Andamento - Total</strong></td>
+                        <td><strong>Alvarás em Andamento</strong></td>
                         {% for year in years %}
-                        {% set year_key = year %}
+                        {% set year_key = year|int %}
                         <td>{{ legalizacao_sp_data.em_andamento.total.years.get(year_key, 0) }}</td>
                         {% endfor %}
                         <td><strong>{{ legalizacao_sp_data.em_andamento.total.total }}</strong></td>
                         <td><strong>{{ "%.1f"|format(legalizacao_sp_data.em_andamento.total.percentage) }}%</strong></td>
                     </tr>
                     
-                    <!-- Subcategorias de Em Andamento -->
                     {% for subcat in legalizacao_sp_data.em_andamento.subcategorias %}
                     <tr class="row-sub">
                         <td>{{ subcat.name }}</td>
                         {% for year in years %}
-                        {% set year_key = year %}
+                        {% set year_key = year|int %}
                         <td>{{ subcat.years.get(year_key, 0) }}</td>
                         {% endfor %}
                         <td>{{ subcat.total }}</td>

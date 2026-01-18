@@ -668,6 +668,16 @@ def generate_pdf(client_id):
     logger.info(f"Caminhos - MR: {mr_logo_path}, Client: {client_logo_path}")
     logger.info(f"Arquivos existem - MR: {os.path.exists(mr_logo_path)}, Client: {os.path.exists(client_logo_path)}")
     
+    # Função auxiliar para converter chaves de anos
+    def convert_years_keys(years_dict):
+        """Converte chaves de string para int se necessário"""
+        if not years_dict:
+            return years_dict
+        keys_list = list(years_dict.keys())
+        if keys_list and isinstance(keys_list[0], str):
+            return {int(k): v for k, v in years_dict.items()}
+        return years_dict
+
     # Buscar dados de Legalização CE se CE estiver na lista
     legalizacao_ce_data = None
     licenca_sanitaria_data = None
@@ -678,16 +688,6 @@ def generate_pdf(client_id):
     if 'CE' in legalizacao_lista:
         try:
             from .enel_spreadsheets import get_enel_spreadsheet_data
-            
-            # Função auxiliar para converter chaves de anos
-            def convert_years_keys(years_dict):
-                """Converte chaves de string para int se necessário"""
-                if not years_dict:
-                    return years_dict
-                keys_list = list(years_dict.keys())
-                if keys_list and isinstance(keys_list[0], str):
-                    return {int(k): v for k, v in years_dict.items()}
-                return years_dict
             
             # 1. Buscar dados de Alvarás de Funcionamento da planilha 'Base Ceara Alvarás de funcionamento'
             spreadsheet_name_alvaras = 'Base Ceara Alvarás de funcionamento'
@@ -812,26 +812,20 @@ def generate_pdf(client_id):
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização CE: {e}", exc_info=True)
 
-    # Buscar dados de Legalização SP se SP estiver na lista
     if 'SP' in legalizacao_lista:
         try:
-            from .enel_spreadsheets import get_enel_spreadsheet_data
-
-            spreadsheet_name_sp = 'Legalização SP'
-            years_str = ','.join(map(str, years))
-            with current_app.test_request_context(
-                path=f'/api/enel-spreadsheets/{spreadsheet_name_sp}/data',
-                query_string=f'years={years_str}',
-                headers={'Authorization': request.headers.get('Authorization', '')}
-            ):
-                result = get_enel_spreadsheet_data(spreadsheet_name_sp)
-                if hasattr(result, 'get_json'):
-                    legalizacao_sp_data = result.get_json()
-                elif isinstance(result, tuple) and len(result) > 0:
-                    if result[1] == 200:
-                        legalizacao_sp_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
-                    else:
-                        logger.warning(f"Erro ao buscar dados de Legalização SP: status {result[1]}")
+            from .enel_spreadsheets import _get_enel_spreadsheet_data_internal
+            result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name='Legalização SP',
+                years=years
+            )
+            if isinstance(result, tuple) and len(result) > 0:
+                if result[1] == 200:
+                    legalizacao_sp_data = result[0].get_json() if hasattr(result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Legalização SP: status {result[1]}")
+            elif hasattr(result, 'get_json'):
+                legalizacao_sp_data = result.get_json()
 
             if legalizacao_sp_data:
                 if legalizacao_sp_data.get('total_demandado', {}).get('years'):
@@ -856,10 +850,10 @@ def generate_pdf(client_id):
         estados_lista=estados_lista,
         legalizacao_lista=legalizacao_lista,
         legalizacao_ce_data=legalizacao_ce_data,
+        legalizacao_sp_data=legalizacao_sp_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
-        legalizacao_sp_data=legalizacao_sp_data,
         years=years,
         comments=comments,
         alvaras_comments=alvaras_comments,
