@@ -910,6 +910,7 @@ def generate_pdf(client_id):
                 sheet_name='Base Alvarás',
                 status_column_override='Status detalhado Relatório',
                 year_column_name='ano Acionamento',
+                year_parse_mode='extract_year',
                 concluido_statuses=['Concluído'],
                 cancelado_statuses=['Cancelado']
             )

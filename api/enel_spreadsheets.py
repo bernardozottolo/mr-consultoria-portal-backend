@@ -1113,6 +1113,12 @@ def process_enel_legalizacao_data(
                 if not year_match:
                     continue
                 row_year = int(year_match.group(0))
+        elif year_parse_mode == 'extract_year':
+            year_match = re.search(r'(19|20)\d{2}', year_value_str)
+            if not year_match:
+                rows_skipped_year_parse += 1
+                continue
+            row_year = int(year_match.group(0))
         else:
             # Tentar converter o ano para inteiro (pode vir como float string "2024.0")
             try:
