@@ -728,6 +728,98 @@
         {% endif %}
     </div>
     {% endif %}
+
+    <!-- Página: Serviços Diversos (SP) -->
+    {% if legalizacao_sp_servicos_data and 'SP' in legalizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">
+            Serviços Diversos
+        </h1>
+        
+        <div class="regional-data">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Categoria</th>
+                        {% for year in years %}
+                        <th>{{ year }}</th>
+                        {% endfor %}
+                        <th>Total</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-main">
+                        <td><strong>Total Demandado</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_sp_servicos_data.total_demandado.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_sp_servicos_data.total_demandado.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_sp_servicos_data.total_demandado.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <tr class="row-main">
+                        <td><strong>Concluídos</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_sp_servicos_data.concluidos.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_sp_servicos_data.concluidos.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_sp_servicos_data.concluidos.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    <tr class="row-main">
+                        <td><strong>Em Andamento</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_sp_servicos_data.em_andamento.total.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_sp_servicos_data.em_andamento.total.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_sp_servicos_data.em_andamento.total.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    {% for subcat in legalizacao_sp_servicos_data.em_andamento.subcategorias %}
+                    <tr class="row-sub">
+                        <td>{{ subcat.name }}</td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ subcat.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td>{{ subcat.total }}</td>
+                        <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if servicos_diversos_sp_comments %}
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
+            <div class="comments-content">
+                <ul>
+                    {% for comment in servicos_diversos_sp_comments %}
+                    <li>
+                        {% if comment is string %}
+                            {{ comment }}
+                        {% elif comment.title %}
+                            <strong>{{ comment.title }}:</strong> {{ comment.text }}
+                        {% else %}
+                            {{ comment.text }}
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </body>
 </html>
 

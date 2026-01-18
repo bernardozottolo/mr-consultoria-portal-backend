@@ -280,6 +280,7 @@ def generate_pdf(client_id):
     anuencia_comments = []
     certificado_bombeiro_comments = []
     legalizacao_sp_comments = []
+    servicos_diversos_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -291,6 +292,8 @@ def generate_pdf(client_id):
                 certificado_bombeiro_comments.append(comment)
             elif page == 'Alvarás de Funcionamento - Renovação (SP)':
                 legalizacao_sp_comments.append(comment)
+            elif page == 'Serviços Diversos (SP)':
+                servicos_diversos_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -687,6 +690,7 @@ def generate_pdf(client_id):
     anuencia_ambiental_data = None
     certificado_bombeiro_data = None
     legalizacao_sp_data = None
+    legalizacao_sp_servicos_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -840,6 +844,37 @@ def generate_pdf(client_id):
                 for subcat in legalizacao_sp_data.get('em_andamento', {}).get('subcategorias', []):
                     if subcat.get('years'):
                         subcat['years'] = convert_years_keys(subcat['years'])
+
+            # Serviços Diversos (SP) - aba "MR - Outros Serviços"
+            servicos_result = _get_enel_spreadsheet_data_internal(
+                spreadsheet_name='Legalização SP',
+                years=years,
+                sheet_name='MR - Outros Serviços',
+                header_row=1,
+                item_column='Item',
+                item_not_equals='53',
+                year_column_name='ano Acionamento',
+                concluido_statuses=['Serviços diversos concluídos'],
+                status_column_override='Relatório Status detalhado'
+            )
+            if isinstance(servicos_result, tuple) and len(servicos_result) > 0:
+                if servicos_result[1] == 200:
+                    legalizacao_sp_servicos_data = servicos_result[0].get_json() if hasattr(servicos_result[0], 'get_json') else None
+                else:
+                    logger.warning(f"Erro ao buscar dados de Serviços Diversos (SP): status {servicos_result[1]}")
+            elif hasattr(servicos_result, 'get_json'):
+                legalizacao_sp_servicos_data = servicos_result.get_json()
+
+            if legalizacao_sp_servicos_data:
+                if legalizacao_sp_servicos_data.get('total_demandado', {}).get('years'):
+                    legalizacao_sp_servicos_data['total_demandado']['years'] = convert_years_keys(legalizacao_sp_servicos_data['total_demandado']['years'])
+                if legalizacao_sp_servicos_data.get('concluidos', {}).get('years'):
+                    legalizacao_sp_servicos_data['concluidos']['years'] = convert_years_keys(legalizacao_sp_servicos_data['concluidos']['years'])
+                if legalizacao_sp_servicos_data.get('em_andamento', {}).get('total', {}).get('years'):
+                    legalizacao_sp_servicos_data['em_andamento']['total']['years'] = convert_years_keys(legalizacao_sp_servicos_data['em_andamento']['total']['years'])
+                for subcat in legalizacao_sp_servicos_data.get('em_andamento', {}).get('subcategorias', []):
+                    if subcat.get('years'):
+                        subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização SP: {e}", exc_info=True)
     
@@ -854,6 +889,7 @@ def generate_pdf(client_id):
         legalizacao_lista=legalizacao_lista,
         legalizacao_ce_data=legalizacao_ce_data,
         legalizacao_sp_data=legalizacao_sp_data,
+        legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
@@ -864,6 +900,7 @@ def generate_pdf(client_id):
         anuencia_comments=anuencia_comments,
         certificado_bombeiro_comments=certificado_bombeiro_comments,
         legalizacao_sp_comments=legalizacao_sp_comments,
+        servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )

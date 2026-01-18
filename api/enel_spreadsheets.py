@@ -423,7 +423,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         # Sempre usar a primeira aba (ignorar o nome salvo no banco)
         # Para 'ENEL - Legalização CE', usar coluna 'Relatório Status detalhado acionamento'
         # Para outras planilhas, usar coluna padrão 'Relatório Status detalhado'
-        if spreadsheet_name == 'ENEL - Legalização CE':
+        status_column_override = request.args.get('status_column', None)
+        if status_column_override:
+            status_column = status_column_override
+        elif spreadsheet_name == 'ENEL - Legalização CE':
             status_column = 'Relatório Status detalhado acionamento'
         else:
             status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
@@ -585,6 +588,17 @@ def get_enel_spreadsheet_data(spreadsheet_name):
             year_column_name = 'Data de acionamento MR'
             year_parse_mode = 'last4'
         
+        # Parâmetros opcionais para filtros específicos
+        sheet_name = request.args.get('sheet_name', None)
+        header_row_param = request.args.get('header_row', None)
+        header_row = int(header_row_param) if header_row_param is not None else None
+        item_column = request.args.get('item_column', None)
+        item_not_equals = request.args.get('item_not_equals', None)
+        concluido_statuses_param = request.args.get('concluido_statuses', None)
+        concluido_statuses = None
+        if concluido_statuses_param:
+            concluido_statuses = [v.strip() for v in concluido_statuses_param.split(',') if v.strip()]
+        
         
         if not years:
             years = [2024, 2025]  # Fallback
@@ -594,18 +608,18 @@ def get_enel_spreadsheet_data(spreadsheet_name):
         try:
             # Somente 'ENEL - Legalização CE' tem tabela começando na 5ª linha (índice 4)
             # 'Base Ceara Alvarás de funcionamento' começa na primeira linha (normal)
-            header_row = None
-            if spreadsheet_name == 'ENEL - Legalização CE':
-                header_row = 4  # Linha 4 (0-indexed) = 5ª linha (pandas pula linhas 0-3 automaticamente)
-                logger.info(f"Planilha 'ENEL - Legalização CE' detectada: usando linha {header_row} (5ª linha) como cabeçalho")
-            else:
-                # Outras planilhas (incluindo 'Base Ceara Alvarás de funcionamento') começam na primeira linha
-                header_row = None  # None = primeira linha (0) como cabeçalho
-                logger.info(f"Planilha '{spreadsheet_name}': usando primeira linha como cabeçalho")
+            if header_row is None:
+                if spreadsheet_name == 'ENEL - Legalização CE':
+                    header_row = 4  # Linha 4 (0-indexed) = 5ª linha (pandas pula linhas 0-3 automaticamente)
+                    logger.info(f"Planilha 'ENEL - Legalização CE' detectada: usando linha {header_row} (5ª linha) como cabeçalho")
+                else:
+                    # Outras planilhas (incluindo 'Base Ceara Alvarás de funcionamento') começam na primeira linha
+                    header_row = None  # None = primeira linha (0) como cabeçalho
+                    logger.info(f"Planilha '{spreadsheet_name}': usando primeira linha como cabeçalho")
             
             sheet_data = read_spreadsheet_file(
                 file_path=str(file_path_obj),
-                sheet_name=None,  # None = primeira aba automaticamente
+                sheet_name=sheet_name,  # None = primeira aba automaticamente
                 header=header_row
             )
         except FileNotFoundError as e:
@@ -621,12 +635,13 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                     file_path_obj = possible_files[0]
                     logger.info(f"Tentando usar arquivo: {file_path_obj} (primeira aba)")
                     # Somente 'ENEL - Legalização CE' tem tabela começando na 5ª linha
-                    header_row = None
-                    if spreadsheet_name == 'ENEL - Legalização CE':
-                        header_row = 4  # Linha 4 (0-indexed) = 5ª linha
+                    if header_row is None:
+                        header_row = None
+                        if spreadsheet_name == 'ENEL - Legalização CE':
+                            header_row = 4  # Linha 4 (0-indexed) = 5ª linha
                     sheet_data = read_spreadsheet_file(
                         file_path=str(file_path_obj),
-                        sheet_name=None,  # None = primeira aba automaticamente
+                        sheet_name=sheet_name,  # None = primeira aba automaticamente
                         header=header_row
                     )
                 else:
@@ -649,7 +664,10 @@ def get_enel_spreadsheet_data(spreadsheet_name):
                 years=years,
                 filter_natureza=filter_natureza,
                 year_column_name=year_column_name,
-                year_parse_mode=year_parse_mode
+                year_parse_mode=year_parse_mode,
+                item_column=item_column,
+                item_not_equals=item_not_equals,
+                concluido_statuses=concluido_statuses
             )
         except ValueError as ve:
             # Se a coluna não foi encontrada, retornar dados vazios com informações sobre colunas disponíveis
@@ -688,7 +706,13 @@ def _get_enel_spreadsheet_data_internal(
     years: list = None,
     filter_natureza: str = None,
     year_column_name: str = None,
-    year_parse_mode: str = None
+    year_parse_mode: str = None,
+    sheet_name: str = None,
+    header_row: int = None,
+    item_column: str = None,
+    item_not_equals: str = None,
+    concluido_statuses: list = None,
+    status_column_override: str = None
 ):
     """
     Função interna para obter dados de planilha sem depender do contexto Flask.
@@ -715,7 +739,9 @@ def _get_enel_spreadsheet_data_internal(
     file_path = result_dict['file_path']
     
     # Determinar coluna de status
-    if spreadsheet_name == 'ENEL - Legalização CE':
+    if status_column_override:
+        status_column = status_column_override
+    elif spreadsheet_name == 'ENEL - Legalização CE':
         status_column = 'Relatório Status detalhado acionamento'
     else:
         status_column = result_dict['status_column'] if result_dict['status_column'] else 'Relatório Status detalhado'
@@ -752,15 +778,15 @@ def _get_enel_spreadsheet_data_internal(
         file_path_obj = found_file
     
     # Ler arquivo
-    header_row = None
-    if spreadsheet_name == 'ENEL - Legalização CE':
-        header_row = 4
-    else:
-        header_row = None
+    if header_row is None:
+        if spreadsheet_name == 'ENEL - Legalização CE':
+            header_row = 4
+        else:
+            header_row = None
     
     sheet_data = read_spreadsheet_file(
         file_path=str(file_path_obj),
-        sheet_name=None,
+        sheet_name=sheet_name,
         header=header_row
     )
     
@@ -778,7 +804,10 @@ def _get_enel_spreadsheet_data_internal(
         years=years,
         filter_natureza=filter_natureza,
         year_column_name=year_column_name,
-        year_parse_mode=year_parse_mode
+        year_parse_mode=year_parse_mode,
+        item_column=item_column,
+        item_not_equals=item_not_equals,
+        concluido_statuses=concluido_statuses
     )
     
     return jsonify(processed_data), 200
@@ -790,7 +819,10 @@ def process_enel_legalizacao_data(
     years: list,
     filter_natureza: str = None,
     year_column_name: str = None,
-    year_parse_mode: str = None
+    year_parse_mode: str = None,
+    item_column: str = None,
+    item_not_equals: str = None,
+    concluido_statuses: list = None
 ) -> dict:
     """
     Processa dados da planilha para criar estrutura hierárquica:
@@ -889,6 +921,26 @@ def process_enel_legalizacao_data(
                 'requested_natureza_column': natureza_column_name
             }
     
+    # Encontrar índice da coluna 'Item' se filtro for necessário
+    item_col_idx = None
+    if item_column:
+        for idx, header in enumerate(headers):
+            if header.strip().lower() == item_column.strip().lower():
+                item_col_idx = idx
+                break
+        if item_col_idx is None:
+            return {
+                'total_demandado': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 100.0},
+                'concluidos': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                'em_andamento': {
+                    'total': {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0},
+                    'subcategorias': []
+                },
+                'warning': f"Coluna '{item_column}' não encontrada",
+                'available_columns': headers,
+                'requested_item_column': item_column
+            }
+    
     # Processar linhas
     status_counts = {}
     total_by_year = {year: 0 for year in years}
@@ -906,8 +958,25 @@ def process_enel_legalizacao_data(
         required_indices = [status_col_idx, year_col_idx]
         if natureza_col_idx is not None:
             required_indices.append(natureza_col_idx)
+        if item_col_idx is not None:
+            required_indices.append(item_col_idx)
         if len(row) <= max(required_indices):
             continue
+        
+        # Aplicar filtro de item (ex: Item != 53)
+        if item_col_idx is not None and item_not_equals is not None:
+            item_value = row[item_col_idx] if item_col_idx < len(row) else ""
+            item_value_str = str(item_value).strip()
+            compare_value_str = str(item_not_equals).strip()
+            
+            def _values_equal(left, right):
+                try:
+                    return float(left) == float(right)
+                except (ValueError, TypeError):
+                    return left.strip().lower() == right.strip().lower()
+            
+            if _values_equal(item_value_str, compare_value_str):
+                continue
         
         # Aplicar filtro de natureza da operação se necessário
         if filter_natureza and natureza_col_idx is not None:
@@ -986,9 +1055,16 @@ def process_enel_legalizacao_data(
     concluidos_normalized = 'concluído'
     concluidos_data = {'years': {y: 0 for y in years}, 'total': 0, 'percentage': 0.0}
     em_andamento_subcategorias = []
+    concluido_values_normalized = None
+    if concluido_statuses:
+        concluido_values_normalized = {' '.join(v.split()).lower() for v in concluido_statuses if isinstance(v, str)}
     
     for status_norm, status_info in status_counts.items():
-        if concluidos_normalized in status_norm:
+        if concluido_values_normalized is not None:
+            is_concluido = status_norm in concluido_values_normalized
+        else:
+            is_concluido = concluidos_normalized in status_norm
+        if is_concluido:
             # É concluído
             for year in years:
                 concluidos_data['years'][year] += status_info['years'][year]
