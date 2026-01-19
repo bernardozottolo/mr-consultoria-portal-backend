@@ -228,19 +228,30 @@ def generate_pdf(client_id):
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
 
     # #region agent log
-    log_path = str(ROOT_DIR.parent / '.cursor' / 'debug.log')
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    log_paths = [
+        str(ROOT_DIR.parent / '.cursor' / 'debug.log'),
+        '/tmp/.cursor/debug.log'
+    ]
+    log_path_used = {'path': None}
     def log_debug(hypothesis_id: str, location: str, message: str, data: dict):
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps({
-                'sessionId': 'debug-session',
-                'runId': 'run1',
-                'hypothesisId': hypothesis_id,
-                'location': location,
-                'message': message,
-                'data': data,
-                'timestamp': int(datetime.now().timestamp() * 1000)
-            }) + '\n')
+        payload = {
+            'sessionId': 'debug-session',
+            'runId': 'run1',
+            'hypothesisId': hypothesis_id,
+            'location': location,
+            'message': message,
+            'data': data,
+            'timestamp': int(datetime.now().timestamp() * 1000)
+        }
+        for candidate in log_paths:
+            try:
+                os.makedirs(os.path.dirname(candidate), exist_ok=True)
+                with open(candidate, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(payload) + '\n')
+                log_path_used['path'] = candidate
+                return
+            except Exception:
+                continue
     log_debug('A', 'reports.py:generate_pdf', 'Regularizacao params', {
         'client_id': client_id,
         'regularizacao_param': regularizacao_param,
