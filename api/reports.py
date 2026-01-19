@@ -814,16 +814,21 @@ def generate_pdf(client_id):
                 from types import SimpleNamespace
                 # Converter cada item da lista também em objeto com atributos
                 items_list = []
+                max_total = 0
                 for item_dict in regularizacao_sp_data_dict.get('items', []):
+                    item_total = item_dict.get('total', 0)
+                    if item_total > max_total:
+                        max_total = item_total
                     items_list.append(SimpleNamespace(
                         name=item_dict.get('name', ''),
-                        total=item_dict.get('total', 0),
+                        total=item_total,
                         percentage=item_dict.get('percentage', 0.0)
                     ))
                 regularizacao_sp_data = SimpleNamespace(
                     items=items_list,
                     total_all=regularizacao_sp_data_dict.get('total_all', 0),
-                    macro_idx=regularizacao_sp_data_dict.get('macro_idx')
+                    macro_idx=regularizacao_sp_data_dict.get('macro_idx'),
+                    max_total=max_total
                 )
             else:
                 logger.warning("Planilha Regularizações SP não encontrada")
