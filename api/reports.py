@@ -816,52 +816,149 @@ def generate_pdf(client_id):
             logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
     
     # Renderizar template HTML
-    html_content = render_template(
-        'report_pdf.html',
-        client_name=client_dict['nome'],
-        month_name=month_name,
-        year=ano,
-        estados=estados_str,
-        estados_lista=estados_lista,
-        legalizacao_lista=legalizacao_lista,
-        legalizacao_ce_data=legalizacao_ce_data,
-        legalizacao_sp_data=legalizacao_sp_data,
-        legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
-        legalizacao_rj_data=legalizacao_rj_data,
-        legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
-        regularizacao_lista=regularizacao_lista,
-        regularizacao_sp_data=regularizacao_sp_data,
-        licenca_sanitaria_data=licenca_sanitaria_data,
-        anuencia_ambiental_data=anuencia_ambiental_data,
-        certificado_bombeiro_data=certificado_bombeiro_data,
-        years=years,
-        comments=comments,
-        alvaras_comments=alvaras_comments,
-        licenca_comments=licenca_comments,
-        anuencia_comments=anuencia_comments,
-        certificado_bombeiro_comments=certificado_bombeiro_comments,
-        legalizacao_sp_comments=legalizacao_sp_comments,
-        servicos_diversos_sp_comments=servicos_diversos_sp_comments,
-        legalizacao_rj_comments=legalizacao_rj_comments,
-        legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
-        regularizacao_sp_comments=regularizacao_sp_comments,
-        mr_logo_path=mr_logo_base64,
-        client_logo_path=client_logo_base64
-    )
+    # #region agent log
+    log_dir = Path('.cursor')
+    log_dir.mkdir(exist_ok=True)
+    try:
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A',
+                'location': 'reports.py:819',
+                'message': 'Before render_template',
+                'data': {
+                    'regularizacao_lista': regularizacao_lista,
+                    'regularizacao_sp_data_present': regularizacao_sp_data is not None,
+                    'regularizacao_sp_data_items_count': len(regularizacao_sp_data.get('items', [])) if regularizacao_sp_data else 0
+                },
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+    except Exception:
+        pass
+    # #endregion
+    
+    try:
+        html_content = render_template(
+            'report_pdf.html',
+            client_name=client_dict['nome'],
+            month_name=month_name,
+            year=ano,
+            estados=estados_str,
+            estados_lista=estados_lista,
+            legalizacao_lista=legalizacao_lista,
+            legalizacao_ce_data=legalizacao_ce_data,
+            legalizacao_sp_data=legalizacao_sp_data,
+            legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
+            legalizacao_rj_data=legalizacao_rj_data,
+            legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
+            regularizacao_lista=regularizacao_lista,
+            regularizacao_sp_data=regularizacao_sp_data,
+            licenca_sanitaria_data=licenca_sanitaria_data,
+            anuencia_ambiental_data=anuencia_ambiental_data,
+            certificado_bombeiro_data=certificado_bombeiro_data,
+            years=years,
+            comments=comments,
+            alvaras_comments=alvaras_comments,
+            licenca_comments=licenca_comments,
+            anuencia_comments=anuencia_comments,
+            certificado_bombeiro_comments=certificado_bombeiro_comments,
+            legalizacao_sp_comments=legalizacao_sp_comments,
+            servicos_diversos_sp_comments=servicos_diversos_sp_comments,
+            legalizacao_rj_comments=legalizacao_rj_comments,
+            legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
+            regularizacao_sp_comments=regularizacao_sp_comments,
+            mr_logo_path=mr_logo_base64,
+            client_logo_path=client_logo_base64
+        )
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'B',
+                    'location': 'reports.py:870',
+                    'message': 'Template rendered successfully',
+                    'data': {
+                        'html_length': len(html_content),
+                        'html_preview': html_content[:200]
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
+    except Exception as e:
+        logger.error(f"Erro ao renderizar template: {e}", exc_info=True)
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'C',
+                    'location': 'reports.py:render_template_error',
+                    'message': 'Template render error',
+                    'data': {
+                        'error': str(e),
+                        'error_type': type(e).__name__
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
+        return jsonify({'error': f'Erro ao renderizar template: {str(e)}'}), 500
     
     # Log do HTML gerado (primeiros 500 caracteres para debug)
     logger.info(f"HTML gerado (primeiros 500 chars): {html_content[:500]}")
     
     # Gerar PDF com WeasyPrint
     try:
-        font_config = FontConfiguration()
+        # #region agent log
         try:
-            # base_url não é mais necessário pois imagens são base64
-            pdf_bytes = HTML(string=html_content, base_url=str(images_dir) if images_dir.exists() else None).write_pdf(
-                font_config=font_config
-            )
-        except Exception as e:
-            raise Exception(f"Linha 864: {e}")
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'D',
+                    'location': 'reports.py:before_weasyprint',
+                    'message': 'Before WeasyPrint PDF generation',
+                    'data': {
+                        'html_length': len(html_content),
+                        'images_dir_exists': images_dir.exists() if images_dir else False
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
+        
+        font_config = FontConfiguration()
+
+        # base_url não é mais necessário pois imagens são base64
+        pdf_bytes = HTML(string=html_content, base_url=str(images_dir) if images_dir.exists() else None).write_pdf(
+            font_config=font_config
+        )
+
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'E',
+                    'location': 'reports.py:after_weasyprint',
+                    'message': 'WeasyPrint PDF generated successfully',
+                    'data': {
+                        'pdf_bytes_length': len(pdf_bytes)
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
         
         logger.info(f"PDF gerado com sucesso. Tamanho: {len(pdf_bytes)} bytes")
         
@@ -874,23 +971,39 @@ def generate_pdf(client_id):
         # Se for preview, usar 'inline' para abrir no navegador
         # Se for download, usar 'attachment' para forçar download
         disposition = 'inline' if is_preview else 'attachment'
-        
-        try:
-            response = Response(
-                pdf_bytes,
-                mimetype='application/pdf',
-                headers={
-                    'Content-Disposition': f'{disposition}; filename="{filename}"',
-                    'Content-Type': 'application/pdf'
-                }
-            )
-        except Exception as e:
-            raise Exception(f"Linha 889: {e}")
-            
+
+        response = Response(
+            pdf_bytes,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'{disposition}; filename="{filename}"',
+                'Content-Type': 'application/pdf'
+            }
+        )
+
         return response
     except Exception as e:
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback completo: {traceback.format_exc()}")
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'F',
+                    'location': 'reports.py:weasyprint_exception',
+                    'message': 'WeasyPrint PDF generation exception',
+                    'data': {
+                        'error': str(e),
+                        'error_type': type(e).__name__,
+                        'traceback': traceback.format_exc()
+                    },
+                    'timestamp': int(datetime.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
         return jsonify({'error': f'Erro ao gerar PDF: {str(e)}'}), 500
 
