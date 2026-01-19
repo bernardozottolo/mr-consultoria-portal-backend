@@ -837,6 +837,7 @@ def generate_pdf(client_id):
         estados=estados_str,
         estados_lista=estados_lista,
         legalizacao_lista=legalizacao_lista,
+        regularizacao_lista=regularizacao_lista,
         legalizacao_ce_data=legalizacao_ce_data,
         legalizacao_sp_data=legalizacao_sp_data,
         legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
