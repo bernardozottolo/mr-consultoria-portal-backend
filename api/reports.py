@@ -184,7 +184,7 @@ def _build_regularizacao_rj_macro_microprocess(sheet_data: dict):
         # Adicionar microprocessos ordenados
         for micro_name in sorted(macro_info['micros'].keys(), key=sort_key):
             micro_count = macro_info['micros'][micro_name]
-            micro_percentage = (micro_count / macro_total * 100) if macro_total else 0.0
+            micro_percentage = (micro_count / total_all * 100) if total_all else 0.0
             
             items.append({
                 'type': 'micro',
@@ -193,15 +193,6 @@ def _build_regularizacao_rj_macro_microprocess(sheet_data: dict):
                 'total': micro_count,
                 'percentage': round(micro_percentage, 2)
             })
-        
-        # Adicionar linha de total do macroprocesso
-        items.append({
-            'type': 'macro_total',
-            'name': macro_name,
-            'micro_name': '',
-            'total': macro_total,
-            'percentage': round(macro_percentage, 2)
-        })
     
     return {
         'items': items,
@@ -381,6 +372,7 @@ def generate_pdf(client_id):
     legalizacao_rj_comments = []
     legalizacao_rj_bombeiro_comments = []
     regularizacao_sp_comments = []
+    regularizacao_rj_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -400,6 +392,8 @@ def generate_pdf(client_id):
                 legalizacao_rj_bombeiro_comments.append(comment)
             elif page == 'Regularização - SP':
                 regularizacao_sp_comments.append(comment)
+            elif page == 'Regularização - RJ':
+                regularizacao_rj_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -956,6 +950,39 @@ def generate_pdf(client_id):
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
     
+    # Buscar dados de Regularização RJ se RJ estiver na lista
+    regularizacao_rj_data = None
+    if 'RJ' in regularizacao_lista:
+        try:
+            file_path_obj = _find_enel_spreadsheet_file('Registral e Notarial - Regularização RJ')
+            if file_path_obj:
+                # Ler planilha começando na linha 3 (header_row=2 pois é 0-indexed)
+                sheet_data = read_spreadsheet_file(
+                    file_path=str(file_path_obj),
+                    sheet_name=None,
+                    header=2  # Linha 3 (0-indexed = 2)
+                )
+                regularizacao_rj_data_dict = _build_regularizacao_rj_macro_microprocess(sheet_data)
+                # Converter dicionário para objeto com atributos
+                from types import SimpleNamespace
+                items_list = []
+                for item_dict in regularizacao_rj_data_dict.get('items', []):
+                    items_list.append(SimpleNamespace(
+                        type=item_dict.get('type', ''),
+                        name=item_dict.get('name', ''),
+                        micro_name=item_dict.get('micro_name', ''),
+                        total=item_dict.get('total', 0),
+                        percentage=item_dict.get('percentage', 0.0)
+                    ))
+                regularizacao_rj_data = SimpleNamespace(
+                    items=items_list,
+                    total_all=regularizacao_rj_data_dict.get('total_all', 0)
+                )
+            else:
+                logger.warning("Planilha Registral e Notarial - Regularização RJ não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Regularização RJ: {e}", exc_info=True)
+    
     # Renderizar template HTML
     # #region agent log
     log_dir = Path('.cursor')
@@ -995,6 +1022,7 @@ def generate_pdf(client_id):
             legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
             regularizacao_lista=regularizacao_lista,
             regularizacao_sp_data=regularizacao_sp_data,
+            regularizacao_rj_data=regularizacao_rj_data,
             licenca_sanitaria_data=licenca_sanitaria_data,
             anuencia_ambiental_data=anuencia_ambiental_data,
             certificado_bombeiro_data=certificado_bombeiro_data,
@@ -1009,6 +1037,7 @@ def generate_pdf(client_id):
             legalizacao_rj_comments=legalizacao_rj_comments,
             legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
             regularizacao_sp_comments=regularizacao_sp_comments,
+            regularizacao_rj_comments=regularizacao_rj_comments,
             mr_logo_path=mr_logo_base64,
             client_logo_path=client_logo_base64
         )
