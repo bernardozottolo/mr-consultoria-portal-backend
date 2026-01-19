@@ -230,6 +230,8 @@ def generate_pdf(client_id):
     # #region agent log
     log_paths = [
         str(ROOT_DIR.parent / '.cursor' / 'debug.log'),
+        '/.cursor/debug.log',
+        '/app/.cursor/debug.log',
         '/tmp/.cursor/debug.log'
     ]
     log_path_used = {'path': None}
