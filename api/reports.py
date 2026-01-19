@@ -228,7 +228,7 @@ def generate_pdf(client_id):
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
 
     # #region agent log
-    log_path = str(ROOT_DIR / '.cursor' / 'debug.log')
+    log_path = str(ROOT_DIR.parent / '.cursor' / 'debug.log')
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     def log_debug(hypothesis_id: str, location: str, message: str, data: dict):
         with open(log_path, 'a', encoding='utf-8') as f:
@@ -852,6 +852,12 @@ def generate_pdf(client_id):
             # #endregion
     
     # Renderizar template HTML
+    # #region agent log
+    log_debug('E', 'reports.py:render_template', 'Rendering template', {
+        'regularizacao_sp_data_present': regularizacao_sp_data is not None,
+        'regularizacao_lista': regularizacao_lista
+    })
+    # #endregion
     html_content = render_template(
         'report_pdf.html',
         client_name=client_dict['nome'],
@@ -884,6 +890,13 @@ def generate_pdf(client_id):
         client_logo_path=client_logo_base64
     )
     
+    # #region agent log
+    log_debug('F', 'reports.py:render_template', 'Template rendered', {
+        'html_len': len(html_content),
+        'has_regularizacao_title': 'Regularizações -' in html_content,
+        'has_regularizacao_sp': 'Regularização - SP' in html_content
+    })
+    # #endregion
     # Log do HTML gerado (primeiros 500 caracteres para debug)
     logger.info(f"HTML gerado (primeiros 500 chars): {html_content[:500]}")
     
@@ -920,5 +933,10 @@ def generate_pdf(client_id):
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback completo: {traceback.format_exc()}")
+        # #region agent log
+        log_debug('G', 'reports.py:write_pdf', 'PDF generation exception', {
+            'error': str(e)
+        })
+        # #endregion
         return jsonify({'error': f'Erro ao gerar PDF: {str(e)}'}), 500
 
