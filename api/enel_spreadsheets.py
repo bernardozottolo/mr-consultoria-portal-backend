@@ -25,7 +25,8 @@ ENEL_REQUIRED_SPREADSHEETS = [
     'ENEL - Legalização CE',
     'LEGALIZAÇÃO RJ_28-04',
     'Legalização SP',
-    'Regularizações SP'
+    'Regularizações SP',
+    'Registral e Notarial - Regularização RJ'
 ]
 
 
