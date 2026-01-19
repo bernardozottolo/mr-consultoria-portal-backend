@@ -798,7 +798,8 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
-
+    
+    # Buscar dados de Regularização SP se SP estiver na lista
     if 'SP' in regularizacao_lista:
         try:
             file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
