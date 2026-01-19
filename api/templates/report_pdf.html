@@ -119,6 +119,11 @@
             text-align: center;
             border: 1px solid #ddd;
         }
+
+        .data-table.regularizacao-table {
+            width: 50%;
+            margin: 20px 0 0 0;
+        }
         
         .data-table tr.row-main {
             background-color: white;
@@ -1038,6 +1043,37 @@
         <h1 class="regional-title">
             Regularizações - {{ regularizacao_lista | join('|') }}
         </h1>
+    </div>
+    {% endif %}
+
+    {% if regularizacao_sp_data and 'SP' in regularizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">Regularização - SP</h1>
+
+        <div style="text-align: left;">
+            <table class="data-table regularizacao-table">
+                <thead>
+                    <tr>
+                        <th>Macroprocesso</th>
+                        <th>Total</th>
+                        <th>%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in regularizacao_sp_data.items %}
+                    <tr>
+                        <td style="text-align: left;">{{ item.name }}</td>
+                        <td>{{ item.total }}</td>
+                        <td>{{ "%.1f"|format(item.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     {% endif %}
 </body>

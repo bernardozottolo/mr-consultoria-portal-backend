@@ -226,6 +226,27 @@ def generate_pdf(client_id):
     regularizacao_lista = [e.strip().upper() for e in regularizacao_param.split(',') if e.strip()]
     if not regularizacao_lista:
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
+
+    # #region agent log
+    log_path = str(ROOT_DIR / '.cursor' / 'debug.log')
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    def log_debug(hypothesis_id: str, location: str, message: str, data: dict):
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': hypothesis_id,
+                'location': location,
+                'message': message,
+                'data': data,
+                'timestamp': int(datetime.now().timestamp() * 1000)
+            }) + '\n')
+    log_debug('A', 'reports.py:generate_pdf', 'Regularizacao params', {
+        'client_id': client_id,
+        'regularizacao_param': regularizacao_param,
+        'regularizacao_lista': regularizacao_lista
+    })
+    # #endregion
     
     # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
     estados_param = request.args.get('estados', 'CE&SP&RJ')
@@ -542,6 +563,7 @@ def generate_pdf(client_id):
     legalizacao_sp_servicos_data = None
     legalizacao_rj_data = None
     legalizacao_rj_bombeiro_data = None
+    regularizacao_sp_data = None
     
     if 'CE' in legalizacao_lista:
         try:
@@ -794,6 +816,40 @@ def generate_pdf(client_id):
                         subcat['years'] = convert_years_keys(subcat['years'])
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
+
+    if 'SP' in regularizacao_lista:
+        try:
+            file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
+            # #region agent log
+            log_debug('B', 'reports.py:regularizacao_sp', 'Regularizacao SP file lookup', {
+                'file_found': bool(file_path_obj),
+                'file_path': str(file_path_obj) if file_path_obj else None
+            })
+            # #endregion
+            if file_path_obj:
+                sheet_data = read_spreadsheet_file(
+                    file_path=str(file_path_obj),
+                    sheet_name=None,
+                    header=None
+                )
+                regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
+                # #region agent log
+                log_debug('C', 'reports.py:regularizacao_sp', 'Regularizacao SP processed', {
+                    'headers_count': len(sheet_data.get('headers', [])),
+                    'rows_count': len(sheet_data.get('values', [])),
+                    'items_count': len((regularizacao_sp_data or {}).get('items', [])),
+                    'total_all': (regularizacao_sp_data or {}).get('total_all')
+                })
+                # #endregion
+            else:
+                logger.warning("Planilha Regularizações SP não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
+            # #region agent log
+            log_debug('D', 'reports.py:regularizacao_sp', 'Regularizacao SP exception', {
+                'error': str(e)
+            })
+            # #endregion
     
     # Renderizar template HTML
     html_content = render_template(
@@ -810,6 +866,7 @@ def generate_pdf(client_id):
         legalizacao_rj_data=legalizacao_rj_data,
         legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
         regularizacao_lista=regularizacao_lista,
+        regularizacao_sp_data=regularizacao_sp_data,
         licenca_sanitaria_data=licenca_sanitaria_data,
         anuencia_ambiental_data=anuencia_ambiental_data,
         certificado_bombeiro_data=certificado_bombeiro_data,
