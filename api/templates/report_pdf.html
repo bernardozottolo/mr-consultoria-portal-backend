@@ -1041,7 +1041,7 @@
     </div>
     {% endif %}
 
-    <!-- Página: Regularização - SP -->
+    Página: Regularização - SP
     {% if regularizacao_sp_data and 'SP' in regularizacao_lista %}
     <div class="visao-geral-page">
         <div class="header-logos">
@@ -1060,18 +1060,19 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in regularizacao_sp_data.items %}
+                    <!-- {% for item in regularizacao_sp_data.items %}
                     <tr>
                         <td style="text-align: left;">{{ item.name }}</td>
                         <td>{{ item.total }}</td>
                         <td>{{ "%.1f"|format(item.percentage) }}%</td>
                     </tr>
-                    {% endfor %}
+                    {% endfor %} -->
                 </tbody>
             </table>
         </div>
 
-        {% if regularizacao_sp_comments %}
+        
+        <!-- {% if regularizacao_sp_comments %}
         <div style="margin-top: 20px; page-break-inside: avoid;">
             <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
             <div class="comments-content">
@@ -1090,7 +1091,7 @@
                 </ul>
             </div>
         </div>
-        {% endif %}
+        {% endif %} -->
     </div>
     {% endif %}
 </body>
