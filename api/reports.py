@@ -106,6 +106,108 @@ def _build_regularizacao_sp_macroprocess(sheet_data: dict):
         'macro_idx': macro_idx
     }
 
+def _build_regularizacao_rj_macro_microprocess(sheet_data: dict):
+    """Processa dados de Regularização RJ com macroprocessos e microprocessos"""
+    headers = sheet_data.get('headers', [])
+    rows = sheet_data.get('values', [])
+    
+    macro_idx = None
+    micro_idx = None
+    
+    for idx, header in enumerate(headers):
+        header_lower = header.strip().upper()
+        if header_lower == 'MACROPROCESSO':
+            macro_idx = idx
+        elif header_lower == 'MICROPROCESSO':
+            micro_idx = idx
+    
+    if macro_idx is None:
+        return {
+            'items': [],
+            'total_all': 0,
+            'warning': "Coluna 'MACROPROCESSO' não encontrada",
+            'available_columns': headers
+        }
+    
+    # Agrupar por macroprocesso e microprocesso
+    macro_data = {}  # {macro_name: {'micros': {micro_name: count}, 'total': count}}
+    
+    for row in rows:
+        if len(row) <= max(macro_idx, micro_idx if micro_idx is not None else -1):
+            continue
+        
+        macro_value = str(row[macro_idx]).strip() if macro_idx < len(row) else ''
+        micro_value = str(row[micro_idx]).strip() if micro_idx is not None and micro_idx < len(row) else ''
+        
+        if not macro_value or macro_value.lower() in ('nan', 'none', ''):
+            continue
+        
+        # Inicializar macro se não existir
+        if macro_value not in macro_data:
+            macro_data[macro_value] = {'micros': {}, 'total': 0}
+        
+        # Se tem microprocesso, contar separadamente
+        if micro_value and micro_value.lower() not in ('nan', 'none', ''):
+            if micro_value not in macro_data[macro_value]['micros']:
+                macro_data[macro_value]['micros'][micro_value] = 0
+            macro_data[macro_value]['micros'][micro_value] += 1
+        
+        # Contar no total do macroprocesso
+        macro_data[macro_value]['total'] += 1
+    
+    # Converter para estrutura hierárquica
+    def sort_key(name: str):
+        # Extrair números do início para ordenação
+        match = re.match(r'\s*(\d+(?:\.\d+)*)', name)
+        if match:
+            parts = match.group(1).split('.')
+            return tuple(int(p) for p in parts) + (name,)
+        return (9999, name)
+    
+    items = []
+    total_all = sum(macro['total'] for macro in macro_data.values())
+    
+    for macro_name in sorted(macro_data.keys(), key=sort_key):
+        macro_info = macro_data[macro_name]
+        macro_total = macro_info['total']
+        macro_percentage = (macro_total / total_all * 100) if total_all else 0.0
+        
+        # Adicionar linha do macroprocesso
+        items.append({
+            'type': 'macro',
+            'name': macro_name,
+            'micro_name': '',
+            'total': macro_total,
+            'percentage': round(macro_percentage, 2)
+        })
+        
+        # Adicionar microprocessos ordenados
+        for micro_name in sorted(macro_info['micros'].keys(), key=sort_key):
+            micro_count = macro_info['micros'][micro_name]
+            micro_percentage = (micro_count / macro_total * 100) if macro_total else 0.0
+            
+            items.append({
+                'type': 'micro',
+                'name': macro_name,
+                'micro_name': micro_name,
+                'total': micro_count,
+                'percentage': round(micro_percentage, 2)
+            })
+        
+        # Adicionar linha de total do macroprocesso
+        items.append({
+            'type': 'macro_total',
+            'name': macro_name,
+            'micro_name': '',
+            'total': macro_total,
+            'percentage': round(macro_percentage, 2)
+        })
+    
+    return {
+        'items': items,
+        'total_all': total_all
+    }
+
 @reports_bp.route('/regularizacao/sp', methods=['GET'])
 @login_required
 def get_regularizacao_sp():
@@ -122,6 +224,25 @@ def get_regularizacao_sp():
         header=None
     )
     processed = _build_regularizacao_sp_macroprocess(sheet_data)
+    return jsonify(processed), 200
+
+@reports_bp.route('/regularizacao/rj', methods=['GET'])
+@login_required
+def get_regularizacao_rj():
+    """Retorna dados de Regularização RJ (Macroprocesso e Microprocesso)"""
+    spreadsheet_name = 'Registral e Notarial - Regularização RJ'
+    sheet_name = request.args.get('sheet_name', None)
+    file_path_obj = _find_enel_spreadsheet_file(spreadsheet_name)
+    if not file_path_obj:
+        return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
+
+    # Ler planilha começando na linha 3 (header_row=2 pois é 0-indexed)
+    sheet_data = read_spreadsheet_file(
+        file_path=str(file_path_obj),
+        sheet_name=sheet_name,
+        header=2  # Linha 3 (0-indexed = 2)
+    )
+    processed = _build_regularizacao_rj_macro_microprocess(sheet_data)
     return jsonify(processed), 200
 
 @reports_bp.route('/clients', methods=['GET'])
