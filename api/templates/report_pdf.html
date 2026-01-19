@@ -1028,8 +1028,8 @@
     </div>
     {% endif %}
 
+    <!-- Página: Regularizações - RJ|SP|CTEEP -->
     {% if regularizacao_lista %}
-    <!-- Página: Regularizações -->
     <div class="regional-page">
         <div class="header-logos">
             <img src="{{ mr_logo_path }}" alt="MR Consultoria">
@@ -1038,90 +1038,6 @@
         <h1 class="regional-title">
             Regularizações - {{ regularizacao_lista | join('|') }}
         </h1>
-    </div>
-    {% endif %}
-
-    <!-- Página: Regularização - SP -->
-    {% if regularizacao_sp_data and 'SP' in regularizacao_lista %}
-    <div class="visao-geral-page">
-        <div class="header-logos">
-            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
-            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
-        </div>
-        <h1 class="visao-geral-title">
-            Regularização - SP
-        </h1>
-        
-        <div class="regional-data">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Macroprocesso</th>
-                        <th>Total</th>
-                        <th>%</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in regularizacao_sp_data.items %}
-                    <tr class="row-main">
-                        <td>{{ item.name }}</td>
-                        <td>{{ item.total }}</td>
-                        <td>{{ "%.2f"|format(item.percentage) }}%</td>
-                    </tr>
-                    {% endfor %}
-                    <tr class="row-main">
-                        <td><strong>Total Geral</strong></td>
-                        <td><strong>{{ regularizacao_sp_data.total_all }}</strong></td>
-                        <td><strong>100%</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        {% if regularizacao_sp_data.chart and regularizacao_sp_data.chart.items %}
-        <div style="margin-top: 20px;">
-            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Gráfico</h2>
-            <div style="padding: 15px; background: white; border: 1px solid #e0e0e0;">
-                {% for item in regularizacao_sp_data.chart.items %}
-                <table style="width: 100%; border-collapse: collapse; margin: 6px 0;">
-                    <tr>
-                        <td style="width: 40%; font-size: 12px; color: #2f84a8; padding-right: 10px;">{{ item.name }}</td>
-                        <td style="width: 50%;">
-                            <table style="width: 100%; border-collapse: collapse; background: #eef5fb; border: 1px solid #c5dcec; height: 16px;">
-                                <tr>
-                                    <td width="{{ item.bar_width }}" style="background: #2f84a8;"></td>
-                                    <td></td>
-                                </tr>
-                            </table>
-                        </td>
-                        <td style="width: 10%; text-align: right; font-size: 12px; padding-left: 10px;">{{ item.total }}</td>
-                    </tr>
-                </table>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        {% if regularizacao_sp_comments %}
-        <div style="margin-top: 20px; page-break-inside: avoid;">
-            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
-            <div class="comments-content">
-                <ul>
-                    {% for comment in regularizacao_sp_comments %}
-                    <li>
-                        {% if comment is string %}
-                            {{ comment }}
-                        {% elif comment.title %}
-                            <strong>{{ comment.title }}:</strong> {{ comment.text }}
-                        {% else %}
-                            {{ comment.text }}
-                        {% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        {% endif %}
     </div>
     {% endif %}
 </body>
