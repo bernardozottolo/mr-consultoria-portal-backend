@@ -966,7 +966,13 @@ def generate_pdf(client_id):
                 # Converter dicionário para objeto com atributos
                 from types import SimpleNamespace
                 items_list = []
+                max_total = 0
                 for item_dict in regularizacao_rj_data_dict.get('items', []):
+                    # Calcular max_total apenas dos macroprocessos
+                    if item_dict.get('type') == 'macro':
+                        item_total = item_dict.get('total', 0)
+                        if item_total > max_total:
+                            max_total = item_total
                     items_list.append(SimpleNamespace(
                         type=item_dict.get('type', ''),
                         name=item_dict.get('name', ''),
@@ -976,7 +982,8 @@ def generate_pdf(client_id):
                     ))
                 regularizacao_rj_data = SimpleNamespace(
                     items=items_list,
-                    total_all=regularizacao_rj_data_dict.get('total_all', 0)
+                    total_all=regularizacao_rj_data_dict.get('total_all', 0),
+                    max_total=max_total
                 )
             else:
                 logger.warning("Planilha Registral e Notarial - Regularização RJ não encontrada")
