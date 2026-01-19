@@ -240,6 +240,28 @@ def generate_pdf(client_id):
     regularizacao_lista = [e.strip().upper() for e in regularizacao_param.split(',') if e.strip()]
     if not regularizacao_lista:
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
+
+    # #region agent log
+    try:
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'A',
+                'location': 'reports.py:generate_pdf',
+                'message': 'PDF params',
+                'data': {
+                    'client_id': client_id,
+                    'legalizacao_param': legalizacao_param,
+                    'regularizacao_param': regularizacao_param,
+                    'regularizacao_lista': regularizacao_lista,
+                    'estados_param': estados_param
+                },
+                'timestamp': int(dt.now().timestamp() * 1000)
+            }) + '\n')
+    except Exception:
+        pass
+    # #endregion
     
     # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
     estados_param = request.args.get('estados', 'CE&SP&RJ')
@@ -817,18 +839,86 @@ def generate_pdf(client_id):
         try:
             file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
             if file_path_obj:
+                # #region agent log
+                try:
+                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            'sessionId': 'debug-session',
+                            'runId': 'run1',
+                            'hypothesisId': 'B',
+                            'location': 'reports.py:regularizacao_sp',
+                            'message': 'Regularizacao SP file found',
+                            'data': {'file_path': str(file_path_obj)},
+                            'timestamp': int(dt.now().timestamp() * 1000)
+                        }) + '\n')
+                except Exception:
+                    pass
+                # #endregion
                 sheet_data = read_spreadsheet_file(
                     file_path=str(file_path_obj),
                     sheet_name=None,
                     header=None
                 )
                 regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
+                # #region agent log
+                try:
+                    with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({
+                            'sessionId': 'debug-session',
+                            'runId': 'run1',
+                            'hypothesisId': 'B',
+                            'location': 'reports.py:regularizacao_sp',
+                            'message': 'Regularizacao SP processed',
+                            'data': {
+                                'headers_count': len(sheet_data.get('headers', [])),
+                                'rows_count': len(sheet_data.get('values', [])),
+                                'items_count': len((regularizacao_sp_data or {}).get('items', [])),
+                                'total_all': (regularizacao_sp_data or {}).get('total_all')
+                            },
+                            'timestamp': int(dt.now().timestamp() * 1000)
+                        }) + '\n')
+                except Exception:
+                    pass
+                # #endregion
             else:
                 logger.warning("Planilha Regularizações SP não encontrada")
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
+            # #region agent log
+            try:
+                with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                    f.write(json.dumps({
+                        'sessionId': 'debug-session',
+                        'runId': 'run1',
+                        'hypothesisId': 'B',
+                        'location': 'reports.py:regularizacao_sp',
+                        'message': 'Regularizacao SP exception',
+                        'data': {'error': str(e)},
+                        'timestamp': int(dt.now().timestamp() * 1000)
+                    }) + '\n')
+            except Exception:
+                pass
+            # #endregion
     
     # Renderizar template HTML
+    # #region agent log
+    try:
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'C',
+                'location': 'reports.py:render_template',
+                'message': 'Rendering template',
+                'data': {
+                    'regularizacao_sp_data_present': regularizacao_sp_data is not None,
+                    'regularizacao_lista': regularizacao_lista
+                },
+                'timestamp': int(dt.now().timestamp() * 1000)
+            }) + '\n')
+    except Exception:
+        pass
+    # #endregion
     html_content = render_template(
         'report_pdf.html',
         client_name=client_dict['nome'],
@@ -864,9 +954,46 @@ def generate_pdf(client_id):
     
     # Log do HTML gerado (primeiros 500 caracteres para debug)
     logger.info(f"HTML gerado (primeiros 500 chars): {html_content[:500]}")
+    # #region agent log
+    try:
+        with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+            f.write(json.dumps({
+                'sessionId': 'debug-session',
+                'runId': 'run1',
+                'hypothesisId': 'C',
+                'location': 'reports.py:render_template',
+                'message': 'Template rendered',
+                'data': {
+                    'html_len': len(html_content),
+                    'has_regularizacao_title': 'Regularizações -' in html_content,
+                    'has_regularizacao_sp': 'Regularização - SP' in html_content
+                },
+                'timestamp': int(dt.now().timestamp() * 1000)
+            }) + '\n')
+    except Exception:
+        pass
+    # #endregion
     
     # Gerar PDF com WeasyPrint
     try:
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'D',
+                    'location': 'reports.py:write_pdf',
+                    'message': 'Starting PDF generation',
+                    'data': {
+                        'images_dir_exists': images_dir.exists(),
+                        'html_len': len(html_content)
+                    },
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
         font_config = FontConfiguration()
         # base_url não é mais necessário pois imagens são base64
         pdf_bytes = HTML(string=html_content, base_url=str(images_dir) if images_dir.exists() else None).write_pdf(
@@ -874,6 +1001,21 @@ def generate_pdf(client_id):
         )
         
         logger.info(f"PDF gerado com sucesso. Tamanho: {len(pdf_bytes)} bytes")
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'D',
+                    'location': 'reports.py:write_pdf',
+                    'message': 'PDF generated',
+                    'data': {'pdf_bytes_len': len(pdf_bytes)},
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
         
         # Verificar se é preview ou download (via query param)
         is_preview = request.args.get('preview', 'false').lower() == 'true'
@@ -898,5 +1040,20 @@ def generate_pdf(client_id):
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback completo: {traceback.format_exc()}")
+        # #region agent log
+        try:
+            with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'run1',
+                    'hypothesisId': 'E',
+                    'location': 'reports.py:write_pdf',
+                    'message': 'PDF generation exception',
+                    'data': {'error': str(e)},
+                    'timestamp': int(dt.now().timestamp() * 1000)
+                }) + '\n')
+        except Exception:
+            pass
+        # #endregion
         return jsonify({'error': f'Erro ao gerar PDF: {str(e)}'}), 500
 
