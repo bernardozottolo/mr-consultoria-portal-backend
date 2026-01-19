@@ -228,13 +228,7 @@ def generate_pdf(client_id):
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
 
     # #region agent log
-    log_paths = [
-        str(ROOT_DIR.parent / '.cursor' / 'debug.log'),
-        '/.cursor/debug.log',
-        '/app/.cursor/debug.log',
-        '/tmp/.cursor/debug.log'
-    ]
-    log_path_used = {'path': None}
+    log_ingest_url = os.environ.get('LOG_INGEST_URL', 'http://host.docker.internal:5001/ingest')
     def log_debug(hypothesis_id: str, location: str, message: str, data: dict):
         payload = {
             'sessionId': 'debug-session',
@@ -243,17 +237,21 @@ def generate_pdf(client_id):
             'location': location,
             'message': message,
             'data': data,
-            'timestamp': int(datetime.now().timestamp() * 1000)
+            'timestamp': int(datetime.now().timestamp() * 1000),
+            'source': 'portal-backend'
         }
-        for candidate in log_paths:
-            try:
-                os.makedirs(os.path.dirname(candidate), exist_ok=True)
-                with open(candidate, 'a', encoding='utf-8') as f:
-                    f.write(json.dumps(payload) + '\n')
-                log_path_used['path'] = candidate
-                return
-            except Exception:
-                continue
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                log_ingest_url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=1):
+                pass
+        except Exception:
+            pass
     log_debug('A', 'reports.py:generate_pdf', 'Regularizacao params', {
         'client_id': client_id,
         'regularizacao_param': regularizacao_param,
