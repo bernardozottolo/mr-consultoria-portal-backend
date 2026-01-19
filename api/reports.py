@@ -226,38 +226,6 @@ def generate_pdf(client_id):
     regularizacao_lista = [e.strip().upper() for e in regularizacao_param.split(',') if e.strip()]
     if not regularizacao_lista:
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
-
-    # #region agent log
-    log_ingest_url = os.environ.get('LOG_INGEST_URL', 'http://host.docker.internal:5001/ingest')
-    def log_debug(hypothesis_id: str, location: str, message: str, data: dict):
-        payload = {
-            'sessionId': 'debug-session',
-            'runId': 'run1',
-            'hypothesisId': hypothesis_id,
-            'location': location,
-            'message': message,
-            'data': data,
-            'timestamp': int(datetime.now().timestamp() * 1000),
-            'source': 'portal-backend'
-        }
-        try:
-            import urllib.request
-            req = urllib.request.Request(
-                log_ingest_url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-            with urllib.request.urlopen(req, timeout=1):
-                pass
-        except Exception:
-            pass
-    log_debug('A', 'reports.py:generate_pdf', 'Regularizacao params', {
-        'client_id': client_id,
-        'regularizacao_param': regularizacao_param,
-        'regularizacao_lista': regularizacao_lista
-    })
-    # #endregion
     
     # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
     estados_param = request.args.get('estados', 'CE&SP&RJ')
@@ -291,6 +259,7 @@ def generate_pdf(client_id):
     servicos_diversos_sp_comments = []
     legalizacao_rj_comments = []
     legalizacao_rj_bombeiro_comments = []
+    regularizacao_sp_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -308,6 +277,8 @@ def generate_pdf(client_id):
                 legalizacao_rj_comments.append(comment)
             elif page == 'Certificado de Aprovação dos Bombeiros (RJ)':
                 legalizacao_rj_bombeiro_comments.append(comment)
+            elif page == 'Regularização - SP':
+                regularizacao_sp_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -831,12 +802,6 @@ def generate_pdf(client_id):
     if 'SP' in regularizacao_lista:
         try:
             file_path_obj = _find_enel_spreadsheet_file('Regularizações SP')
-            # #region agent log
-            log_debug('B', 'reports.py:regularizacao_sp', 'Regularizacao SP file lookup', {
-                'file_found': bool(file_path_obj),
-                'file_path': str(file_path_obj) if file_path_obj else None
-            })
-            # #endregion
             if file_path_obj:
                 sheet_data = read_spreadsheet_file(
                     file_path=str(file_path_obj),
@@ -844,31 +809,12 @@ def generate_pdf(client_id):
                     header=None
                 )
                 regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
-                # #region agent log
-                log_debug('C', 'reports.py:regularizacao_sp', 'Regularizacao SP processed', {
-                    'headers_count': len(sheet_data.get('headers', [])),
-                    'rows_count': len(sheet_data.get('values', [])),
-                    'items_count': len((regularizacao_sp_data or {}).get('items', [])),
-                    'total_all': (regularizacao_sp_data or {}).get('total_all')
-                })
-                # #endregion
             else:
                 logger.warning("Planilha Regularizações SP não encontrada")
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Regularização SP: {e}", exc_info=True)
-            # #region agent log
-            log_debug('D', 'reports.py:regularizacao_sp', 'Regularizacao SP exception', {
-                'error': str(e)
-            })
-            # #endregion
     
     # Renderizar template HTML
-    # #region agent log
-    log_debug('E', 'reports.py:render_template', 'Rendering template', {
-        'regularizacao_sp_data_present': regularizacao_sp_data is not None,
-        'regularizacao_lista': regularizacao_lista
-    })
-    # #endregion
     html_content = render_template(
         'report_pdf.html',
         client_name=client_dict['nome'],
@@ -897,17 +843,11 @@ def generate_pdf(client_id):
         servicos_diversos_sp_comments=servicos_diversos_sp_comments,
         legalizacao_rj_comments=legalizacao_rj_comments,
         legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
+        regularizacao_sp_comments=regularizacao_sp_comments,
         mr_logo_path=mr_logo_base64,
         client_logo_path=client_logo_base64
     )
     
-    # #region agent log
-    log_debug('F', 'reports.py:render_template', 'Template rendered', {
-        'html_len': len(html_content),
-        'has_regularizacao_title': 'Regularizações -' in html_content,
-        'has_regularizacao_sp': 'Regularização - SP' in html_content
-    })
-    # #endregion
     # Log do HTML gerado (primeiros 500 caracteres para debug)
     logger.info(f"HTML gerado (primeiros 500 chars): {html_content[:500]}")
     
@@ -944,10 +884,5 @@ def generate_pdf(client_id):
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
         import traceback
         logger.error(f"Traceback completo: {traceback.format_exc()}")
-        # #region agent log
-        log_debug('G', 'reports.py:write_pdf', 'PDF generation exception', {
-            'error': str(e)
-        })
-        # #endregion
         return jsonify({'error': f'Erro ao gerar PDF: {str(e)}'}), 500
 
