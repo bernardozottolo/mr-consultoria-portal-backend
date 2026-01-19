@@ -855,10 +855,13 @@ def generate_pdf(client_id):
     # Gerar PDF com WeasyPrint
     try:
         font_config = FontConfiguration()
-        # base_url não é mais necessário pois imagens são base64
-        pdf_bytes = HTML(string=html_content, base_url=str(images_dir) if images_dir.exists() else None).write_pdf(
-            font_config=font_config
-        )
+        try:
+            # base_url não é mais necessário pois imagens são base64
+            pdf_bytes = HTML(string=html_content, base_url=str(images_dir) if images_dir.exists() else None).write_pdf(
+                font_config=font_config
+            )
+        except Exception as e:
+            raise Exception(f"Linha 864: {e}")
         
         logger.info(f"PDF gerado com sucesso. Tamanho: {len(pdf_bytes)} bytes")
         
@@ -872,14 +875,18 @@ def generate_pdf(client_id):
         # Se for download, usar 'attachment' para forçar download
         disposition = 'inline' if is_preview else 'attachment'
         
-        response = Response(
-            pdf_bytes,
-            mimetype='application/pdf',
-            headers={
-                'Content-Disposition': f'{disposition}; filename="{filename}"',
-                'Content-Type': 'application/pdf'
-            }
-        )
+        try:
+            response = Response(
+                pdf_bytes,
+                mimetype='application/pdf',
+                headers={
+                    'Content-Disposition': f'{disposition}; filename="{filename}"',
+                    'Content-Type': 'application/pdf'
+                }
+            )
+        except Exception as e:
+            raise Exception(f"Linha 889: {e}")
+            
         return response
     except Exception as e:
         logger.error(f"Erro ao gerar PDF: {str(e)}", exc_info=True)
