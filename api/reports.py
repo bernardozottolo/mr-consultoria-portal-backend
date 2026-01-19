@@ -809,7 +809,22 @@ def generate_pdf(client_id):
                     sheet_name=None,
                     header=None
                 )
-                regularizacao_sp_data = _build_regularizacao_sp_macroprocess(sheet_data)
+                regularizacao_sp_data_dict = _build_regularizacao_sp_macroprocess(sheet_data)
+                # Converter dicionário para objeto com atributos para evitar conflito com .items() do dict
+                from types import SimpleNamespace
+                # Converter cada item da lista também em objeto com atributos
+                items_list = []
+                for item_dict in regularizacao_sp_data_dict.get('items', []):
+                    items_list.append(SimpleNamespace(
+                        name=item_dict.get('name', ''),
+                        total=item_dict.get('total', 0),
+                        percentage=item_dict.get('percentage', 0.0)
+                    ))
+                regularizacao_sp_data = SimpleNamespace(
+                    items=items_list,
+                    total_all=regularizacao_sp_data_dict.get('total_all', 0),
+                    macro_idx=regularizacao_sp_data_dict.get('macro_idx')
+                )
             else:
                 logger.warning("Planilha Regularizações SP não encontrada")
         except Exception as e:
