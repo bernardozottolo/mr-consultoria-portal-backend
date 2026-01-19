@@ -224,40 +224,67 @@
         .regularizacao-sp-chart {
             width: 100%;
             height: 400px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            gap: 10px;
+            padding: 20px 10px;
         }
         
         .regularizacao-sp-bar {
-            margin-bottom: 15px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            max-width: 80px;
         }
         
         .regularizacao-sp-bar-label {
-            font-size: 0.9em;
+            font-size: 0.75em;
             color: #333;
-            margin-bottom: 5px;
-            text-align: left;
+            margin-top: 8px;
+            text-align: center;
+            word-wrap: break-word;
+            width: 100%;
         }
         
         .regularizacao-sp-bar-container {
             width: 100%;
-            height: 30px;
+            height: 100%;
             background-color: #e0e0e0;
-            border-radius: 5px;
+            border-radius: 5px 5px 0 0;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
         }
         
         .regularizacao-sp-bar-fill {
-            height: 100%;
+            width: 100%;
             background-color: #2f84a8;
-            border-radius: 5px;
+            border-radius: 5px 5px 0 0;
             display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 8px;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 5px;
             color: white;
             font-weight: bold;
-            font-size: 0.85em;
-            transition: width 0.3s ease;
+            font-size: 0.8em;
+            min-height: 20px;
+            position: relative;
+        }
+        
+        .regularizacao-sp-bar-value {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75em;
+            font-weight: bold;
+            color: #2f84a8;
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -1148,14 +1175,14 @@
                     {% if regularizacao_sp_data and regularizacao_sp_data.items %}
                     {% set max_total = regularizacao_sp_data.max_total if regularizacao_sp_data.max_total else 1 %}
                     {% for item in regularizacao_sp_data.items %}
-                    {% set bar_width = (item.total / max_total * 100) if max_total > 0 else 0 %}
+                    {% set bar_height = (item.total / max_total * 100) if max_total > 0 else 0 %}
                     <div class="regularizacao-sp-bar">
-                        <div class="regularizacao-sp-bar-label">{{ item.name }}</div>
                         <div class="regularizacao-sp-bar-container">
-                            <div class="regularizacao-sp-bar-fill" style="width: {{ bar_width }}%;">
-                                {{ item.total }}
+                            <div class="regularizacao-sp-bar-value">{{ item.total }}</div>
+                            <div class="regularizacao-sp-bar-fill" style="height: {{ bar_height }}%;">
                             </div>
                         </div>
+                        <div class="regularizacao-sp-bar-label">{{ item.name }}</div>
                     </div>
                     {% endfor %}
                     {% endif %}
