@@ -306,18 +306,20 @@
     </div>
     
     <!-- Segunda página: Legalizações -->
+    {% if legalizacao_lista %}
     <div class="legalizacoes-page">
         <div class="header-logos">
             <img src="{{ mr_logo_path }}" alt="MR Consultoria">
             <img src="{{ client_logo_path }}" alt="{{ client_name }}">
         </div>
         <h1 class="legalizacoes-title">
-            Legalizações - {{ estados }}
+            Legalizações - {{ legalizacao_lista | join('|') }}
         </h1>
     </div>
+    {% endif %}
     
     <!-- Páginas de Regionais (condicionais) -->
-    {% if 'CE' in estados_lista %}
+    {% if 'CE' in legalizacao_lista %}
     <!-- Terceira página: Regional Ceará -->
     <div class="regional-page">
         <div class="header-logos">
@@ -722,7 +724,7 @@
     </div>
     {% endif %}
 
-    {% if 'SP' in estados_lista %}
+    {% if 'SP' in legalizacao_lista %}
     <!-- Página: Regional São Paulo -->
     <div class="regional-page">
         <div class="header-logos">
@@ -919,7 +921,7 @@
     </div>
     {% endif %}
 
-    {% if 'RJ' in estados_lista %}
+    {% if 'RJ' in legalizacao_lista %}
     <!-- Página: Regional Rio de Janeiro -->
     <div class="regional-page">
         <div class="header-logos">

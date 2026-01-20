@@ -484,6 +484,11 @@ def generate_pdf(client_id):
     estados_lista = [e.strip().upper() for e in estados_param.split('&') if e.strip().upper() in estados_validos]
     if not estados_lista:
         estados_lista = ['CE', 'SP', 'RJ']  # Fallback para padrão
+    # Sincronizar estados com seleção de legalização
+    if legalizacao_lista:
+        estados_lista = [e for e in legalizacao_lista if e in estados_validos]
+    else:
+        estados_lista = []
     estados_str = '|'.join(estados_lista)  # Usar | para exibição no PDF
     
     # Obter nomes de status customizados (JSON)
@@ -705,7 +710,7 @@ def generate_pdf(client_id):
     # Converter para base64 (apenas logos, sem background)
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
-
+    
     # Fluxograma CTEEP (para última página)
     fluxograma_cteep_path = ''
     fluxograma_cteep_base64 = ''
@@ -1273,6 +1278,8 @@ def generate_pdf(client_id):
                 'message': 'Before render_template',
                 'data': {
                     'regularizacao_lista': regularizacao_lista,
+                    'legalizacao_lista': legalizacao_lista,
+                    'estados_lista': estados_lista,
                     'regularizacao_sp_data_present': regularizacao_sp_data is not None,
                     'regularizacao_sp_data_items_count': len(regularizacao_sp_data.get('items', [])) if regularizacao_sp_data else 0
                 },
@@ -1319,7 +1326,7 @@ def generate_pdf(client_id):
             mr_logo_path=mr_logo_base64,
             client_logo_path=client_logo_base64,
             fluxograma_cteep_path=fluxograma_cteep_base64
-    )
+        )
         # #region agent log
         try:
             with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
