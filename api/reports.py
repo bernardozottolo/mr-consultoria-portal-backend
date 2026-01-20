@@ -1066,6 +1066,78 @@ def generate_pdf(client_id):
                 for subcat in legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('subcategorias', []):
                     if subcat.get('years'):
                         subcat['years'] = convert_years_keys(subcat['years'])
+
+                # Separar "Não Iniciado" a partir de status específicos
+                nao_iniciado_statuses = ['Aguardando obra Sist. Incêndio - Enel']
+                nao_iniciado_norm = {s.strip().lower() for s in nao_iniciado_statuses}
+                total_demandado_total = legalizacao_rj_bombeiro_data.get('total_demandado', {}).get('total', 0)
+
+                em_andamento_total = legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('total', {})
+                em_andamento_subcats = legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('subcategorias', [])
+
+                nao_iniciado_subcats = []
+                remaining_subcats = []
+                nao_iniciado_years = {y: 0 for y in years}
+                nao_iniciado_total = 0
+
+                for subcat in em_andamento_subcats:
+                    subcat_name = str(subcat.get('name', '')).strip()
+                    if subcat_name.lower() in nao_iniciado_norm:
+                        nao_iniciado_subcats.append(subcat)
+                        nao_iniciado_total += subcat.get('total', 0)
+                        for year in years:
+                            nao_iniciado_years[year] += subcat.get('years', {}).get(year, 0)
+                    else:
+                        remaining_subcats.append(subcat)
+
+                if nao_iniciado_total > 0:
+                    # Atualizar em_andamento total removendo nao_iniciado
+                    em_andamento_years = em_andamento_total.get('years', {})
+                    for year in years:
+                        em_andamento_years[year] = em_andamento_years.get(year, 0) - nao_iniciado_years.get(year, 0)
+                    em_andamento_total['years'] = em_andamento_years
+                    em_andamento_total['total'] = max(em_andamento_total.get('total', 0) - nao_iniciado_total, 0)
+
+                    legalizacao_rj_bombeiro_data['em_andamento']['total'] = em_andamento_total
+                    legalizacao_rj_bombeiro_data['em_andamento']['subcategorias'] = remaining_subcats
+
+                    def calc_pct(value, total):
+                        return round((value / total) * 100, 1) if total else 0.0
+
+                    # Recalcular percentuais
+                    legalizacao_rj_bombeiro_data['concluidos']['percentage'] = calc_pct(
+                        legalizacao_rj_bombeiro_data.get('concluidos', {}).get('total', 0),
+                        total_demandado_total
+                    )
+                    legalizacao_rj_bombeiro_data['em_andamento']['total']['percentage'] = calc_pct(
+                        legalizacao_rj_bombeiro_data.get('em_andamento', {}).get('total', {}).get('total', 0),
+                        total_demandado_total
+                    )
+                    for subcat in legalizacao_rj_bombeiro_data['em_andamento'].get('subcategorias', []):
+                        subcat['percentage'] = calc_pct(subcat.get('total', 0), total_demandado_total)
+
+                    # Criar estrutura de "Não Iniciado"
+                    legalizacao_rj_bombeiro_data['nao_iniciado'] = {
+                        'total': nao_iniciado_total,
+                        'years': nao_iniciado_years,
+                        'percentage': calc_pct(nao_iniciado_total, total_demandado_total),
+                        'subcategorias': []
+                    }
+                    for subcat in nao_iniciado_subcats:
+                        legalizacao_rj_bombeiro_data['nao_iniciado']['subcategorias'].append({
+                            'name': subcat.get('name', ''),
+                            'years': subcat.get('years', {}),
+                            'total': subcat.get('total', 0),
+                            'percentage': calc_pct(subcat.get('total', 0), total_demandado_total)
+                        })
+                else:
+                    # Garantir estrutura vazia para renderização
+                    legalizacao_rj_bombeiro_data['nao_iniciado'] = {
+                        'total': 0,
+                        'years': {y: 0 for y in years},
+                        'percentage': 0.0,
+                        'subcategorias': []
+                    }
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Legalização RJ: {e}", exc_info=True)
     

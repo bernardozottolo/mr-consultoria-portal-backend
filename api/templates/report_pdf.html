@@ -1094,6 +1094,28 @@
                         <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
                     </tr>
                     {% endfor %}
+                    
+                    <tr class="row-main">
+                        <td><strong>Não Iniciado</strong></td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ legalizacao_rj_bombeiro_data.nao_iniciado.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td><strong>{{ legalizacao_rj_bombeiro_data.nao_iniciado.total }}</strong></td>
+                        <td><strong>{{ "%.1f"|format(legalizacao_rj_bombeiro_data.nao_iniciado.percentage) }}%</strong></td>
+                    </tr>
+                    
+                    {% for subcat in legalizacao_rj_bombeiro_data.nao_iniciado.subcategorias %}
+                    <tr class="row-sub">
+                        <td>{{ subcat.name }}</td>
+                        {% for year in years %}
+                        {% set year_key = year|int %}
+                        <td>{{ subcat.years.get(year_key, 0) }}</td>
+                        {% endfor %}
+                        <td>{{ subcat.total }}</td>
+                        <td>{{ "%.1f"|format(subcat.percentage) }}%</td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
