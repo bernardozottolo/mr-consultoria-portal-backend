@@ -701,6 +701,24 @@ def generate_pdf(client_id):
     # Converter para base64 (apenas logos, sem background)
     mr_logo_base64 = get_image_base64(mr_logo_path)
     client_logo_base64 = get_image_base64(client_logo_path)
+
+    # Fluxograma CTEEP (para última página)
+    fluxograma_cteep_path = ''
+    fluxograma_cteep_base64 = ''
+    try:
+        possible_fluxograma_paths = [
+            str(ROOT_DIR / 'portal-frontend' / 'images' / 'fluxograma_cteep.png'),
+            str(ROOT_DIR.parent / 'portal-frontend' / 'images' / 'fluxograma_cteep.png'),
+            str(IMAGES_DIR / 'fluxograma_cteep.png'),
+        ]
+        for flux_path in possible_fluxograma_paths:
+            if os.path.exists(flux_path):
+                fluxograma_cteep_path = flux_path
+                break
+        if fluxograma_cteep_path:
+            fluxograma_cteep_base64 = get_image_base64(fluxograma_cteep_path)
+    except Exception as e:
+        logger.warning(f"Erro ao carregar fluxograma CTEEP: {e}")
     
     # Se ainda não encontrou o logo do cliente após converter, tentar buscar via HTTP do frontend
     if not client_logo_base64:
@@ -1223,7 +1241,8 @@ def generate_pdf(client_id):
             regularizacao_rj_comments=regularizacao_rj_comments,
             regularizacao_cteep_comments=regularizacao_cteep_comments,
             mr_logo_path=mr_logo_base64,
-            client_logo_path=client_logo_base64
+            client_logo_path=client_logo_base64,
+            fluxograma_cteep_path=fluxograma_cteep_base64
     )
         # #region agent log
         try:

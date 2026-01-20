@@ -1213,7 +1213,7 @@
                 </div>
 
                 {% if regularizacao_rj_comments %}
-                <div style="margin-top: 36px; page-break-inside: avoid;">
+                <div style="margin-top: 40px; page-break-inside: avoid;">
                     <h2 class="comments-title" style="margin-top: 10px; margin-bottom: 0;">Comentários</h2>
                     <div class="comments-content">
                         <ul>
@@ -1294,7 +1294,7 @@
 
         
         {% if regularizacao_sp_comments %}
-        <div style="margin-top: 36px; page-break-inside: avoid;">
+        <div style="margin-top: 40px; page-break-inside: avoid;">
             <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
             <div class="comments-content">
                 <ul>
@@ -1403,7 +1403,7 @@
                 </div>
 
                 {% if regularizacao_cteep_comments %}
-                <div style="margin-top: 36px; page-break-inside: avoid;">
+                <div style="margin-top: 40px; page-break-inside: avoid;">
                     <h2 class="comments-title" style="margin-top: 10px; margin-bottom: 0;">Comentários</h2>
                     <div class="comments-content">
                         <ul>
@@ -1423,6 +1423,21 @@
                 </div>
                 {% endif %}
             </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Página: Regularização - CTEEP (Fluxograma) -->
+    {% if 'CTEEP' in regularizacao_lista and fluxograma_cteep_path %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">Regularização - CTEEP</h1>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <img src="{{ fluxograma_cteep_path }}" alt="Fluxograma CTEEP" style="max-width: 90%; max-height: 70vh; height: auto; width: auto;">
         </div>
     </div>
     {% endif %}
