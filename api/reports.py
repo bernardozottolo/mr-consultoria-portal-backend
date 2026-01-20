@@ -1014,40 +1014,40 @@ def generate_pdf(client_id):
     # #endregion
     
     try:
-    html_content = render_template(
-        'report_pdf.html',
-        client_name=client_dict['nome'],
-        month_name=month_name,
-        year=ano,
-        estados=estados_str,
-        estados_lista=estados_lista,
-        legalizacao_lista=legalizacao_lista,
-        legalizacao_ce_data=legalizacao_ce_data,
-        legalizacao_sp_data=legalizacao_sp_data,
+        html_content = render_template(
+            'report_pdf.html',
+            client_name=client_dict['nome'],
+            month_name=month_name,
+            year=ano,
+            estados=estados_str,
+            estados_lista=estados_lista,
+            legalizacao_lista=legalizacao_lista,
+            legalizacao_ce_data=legalizacao_ce_data,
+            legalizacao_sp_data=legalizacao_sp_data,
             legalizacao_sp_servicos_data=legalizacao_sp_servicos_data,
             legalizacao_rj_data=legalizacao_rj_data,
             legalizacao_rj_bombeiro_data=legalizacao_rj_bombeiro_data,
             regularizacao_lista=regularizacao_lista,
             regularizacao_sp_data=regularizacao_sp_data,
             regularizacao_rj_data=regularizacao_rj_data,
-        licenca_sanitaria_data=licenca_sanitaria_data,
-        anuencia_ambiental_data=anuencia_ambiental_data,
-        certificado_bombeiro_data=certificado_bombeiro_data,
-        years=years,
-        comments=comments,
-        alvaras_comments=alvaras_comments,
-        licenca_comments=licenca_comments,
-        anuencia_comments=anuencia_comments,
-        certificado_bombeiro_comments=certificado_bombeiro_comments,
+            licenca_sanitaria_data=licenca_sanitaria_data,
+            anuencia_ambiental_data=anuencia_ambiental_data,
+            certificado_bombeiro_data=certificado_bombeiro_data,
+            years=years,
+            comments=comments,
+            alvaras_comments=alvaras_comments,
+            licenca_comments=licenca_comments,
+            anuencia_comments=anuencia_comments,
+            certificado_bombeiro_comments=certificado_bombeiro_comments,
             legalizacao_sp_comments=legalizacao_sp_comments,
             servicos_diversos_sp_comments=servicos_diversos_sp_comments,
             legalizacao_rj_comments=legalizacao_rj_comments,
             legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
             regularizacao_sp_comments=regularizacao_sp_comments,
             regularizacao_rj_comments=regularizacao_rj_comments,
-        mr_logo_path=mr_logo_base64,
-        client_logo_path=client_logo_base64
-    )
+            mr_logo_path=mr_logo_base64,
+            client_logo_path=client_logo_base64
+        )
         # #region agent log
         try:
             with open('.cursor/debug.log', 'a', encoding='utf-8') as f:
