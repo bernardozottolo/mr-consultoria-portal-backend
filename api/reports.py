@@ -465,12 +465,16 @@ def generate_pdf(client_id):
     
     # Processar legalização (separado por vírgula)
     legalizacao_lista = [e.strip().upper() for e in legalizacao_param.split(',') if e.strip()]
-    if not legalizacao_lista:
+    if legalizacao_lista == ['NONE']:
+        legalizacao_lista = []
+    elif not legalizacao_lista:
         legalizacao_lista = ['CE', 'SP', 'RJ']  # Padrão
     
     # Processar regularização (separado por vírgula)
     regularizacao_lista = [e.strip().upper() for e in regularizacao_param.split(',') if e.strip()]
-    if not regularizacao_lista:
+    if regularizacao_lista == ['NONE']:
+        regularizacao_lista = []
+    elif not regularizacao_lista:
         regularizacao_lista = ['RJ', 'SP', 'CTEEP']  # Padrão
     
     # Obter estados selecionados (padrão: CE&SP&RJ) - mantido para compatibilidade
