@@ -1211,29 +1211,29 @@
                     {% endfor %}
                     {% endif %}
                 </div>
-            </div>
-        </div>
 
-        {% if regularizacao_rj_comments %}
-        <div style="margin-top: 20px; page-break-inside: avoid;">
-            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
-            <div class="comments-content">
-                <ul>
-                    {% for comment in regularizacao_rj_comments %}
-                    <li>
-                        {% if comment is string %}
-                            {{ comment }}
-                        {% elif comment.title %}
-                            <strong>{{ comment.title }}:</strong> {{ comment.text }}
-                        {% else %}
-                            {{ comment.text }}
-                        {% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
+                {% if regularizacao_rj_comments %}
+                <div style="margin-top: 12px; page-break-inside: avoid;">
+                    <h2 class="comments-title" style="margin-top: 10px; margin-bottom: 0;">Comentários</h2>
+                    <div class="comments-content">
+                        <ul>
+                            {% for comment in regularizacao_rj_comments %}
+                            <li>
+                                {% if comment is string %}
+                                    {{ comment }}
+                                {% elif comment.title %}
+                                    <strong>{{ comment.title }}:</strong> {{ comment.text }}
+                                {% else %}
+                                    {{ comment.text }}
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
     {% endif %}
 
@@ -1401,29 +1401,29 @@
                     {% endfor %}
                     {% endif %}
                 </div>
-            </div>
-        </div>
 
-        {% if regularizacao_cteep_comments %}
-        <div style="margin-top: 20px; page-break-inside: avoid;">
-            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
-            <div class="comments-content">
-                <ul>
-                    {% for comment in regularizacao_cteep_comments %}
-                    <li>
-                        {% if comment is string %}
-                            {{ comment }}
-                        {% elif comment.title %}
-                            <strong>{{ comment.title }}:</strong> {{ comment.text }}
-                        {% else %}
-                            {{ comment.text }}
-                        {% endif %}
-                    </li>
-                    {% endfor %}
-                </ul>
+                {% if regularizacao_cteep_comments %}
+                <div style="margin-top: 12px; page-break-inside: avoid;">
+                    <h2 class="comments-title" style="margin-top: 10px; margin-bottom: 0;">Comentários</h2>
+                    <div class="comments-content">
+                        <ul>
+                            {% for comment in regularizacao_cteep_comments %}
+                            <li>
+                                {% if comment is string %}
+                                    {{ comment }}
+                                {% elif comment.title %}
+                                    <strong>{{ comment.title }}:</strong> {{ comment.text }}
+                                {% else %}
+                                    {{ comment.text }}
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
-        {% endif %}
     </div>
     {% endif %}
 </body>
