@@ -199,6 +199,122 @@ def _build_regularizacao_rj_macro_microprocess(sheet_data: dict):
         'total_all': total_all
     }
 
+def _build_regularizacao_cteep_etapa_macro_microprocess(sheet_data: dict):
+    """Processa dados de Regularização CTEEP com etapas, macroprocessos e microprocessos"""
+    headers = sheet_data.get('headers', [])
+    rows = sheet_data.get('values', [])
+
+    etapa_idx = None
+    macro_idx = None
+    micro_idx = None
+
+    for idx, header in enumerate(headers):
+        header_upper = header.strip().upper()
+        if header_upper == 'ETAPAS':
+            etapa_idx = idx
+        elif header_upper == 'MACROPROCESSO':
+            macro_idx = idx
+        elif header_upper == 'MICROPROCESSO':
+            micro_idx = idx
+
+    if etapa_idx is None:
+        return {
+            'items': [],
+            'total_all': 0,
+            'warning': "Coluna 'Etapas' não encontrada",
+            'available_columns': headers
+        }
+
+    if macro_idx is None:
+        return {
+            'items': [],
+            'total_all': 0,
+            'warning': "Coluna 'Macroprocesso' não encontrada",
+            'available_columns': headers
+        }
+
+    etapa_data = {}  # {etapa: {macro: {'micros': {micro: count}, 'total': count}}}
+
+    for row in rows:
+        max_idx = max(etapa_idx, macro_idx, micro_idx if micro_idx is not None else -1)
+        if len(row) <= max_idx:
+            continue
+
+        etapa_value = str(row[etapa_idx]).strip() if etapa_idx < len(row) else ''
+        macro_value = str(row[macro_idx]).strip() if macro_idx < len(row) else ''
+        micro_value = str(row[micro_idx]).strip() if micro_idx is not None and micro_idx < len(row) else ''
+
+        if not etapa_value or etapa_value.lower() in ('nan', 'none', ''):
+            continue
+        if not macro_value or macro_value.lower() in ('nan', 'none', ''):
+            continue
+
+        if etapa_value not in etapa_data:
+            etapa_data[etapa_value] = {}
+        if macro_value not in etapa_data[etapa_value]:
+            etapa_data[etapa_value][macro_value] = {'micros': {}, 'total': 0}
+
+        if micro_value and micro_value.lower() not in ('nan', 'none', ''):
+            micros = etapa_data[etapa_value][macro_value]['micros']
+            micros[micro_value] = micros.get(micro_value, 0) + 1
+
+        etapa_data[etapa_value][macro_value]['total'] += 1
+
+    def sort_key(name: str):
+        match = re.match(r'\s*(\d+(?:\.\d+)*)', name)
+        if match:
+            parts = match.group(1).split('.')
+            return tuple(int(p) for p in parts) + (name,)
+        return (9999, name)
+
+    items = []
+    total_all = 0
+    for etapa_name in etapa_data:
+        for macro_name in etapa_data[etapa_name]:
+            total_all += etapa_data[etapa_name][macro_name]['total']
+
+    for etapa_name in sorted(etapa_data.keys(), key=sort_key):
+        etapa_total = sum(macro_info['total'] for macro_info in etapa_data[etapa_name].values())
+        etapa_percentage = (etapa_total / total_all * 100) if total_all else 0.0
+        items.append({
+            'type': 'etapa',
+            'etapa_name': etapa_name,
+            'macro_name': '',
+            'micro_name': '',
+            'total': etapa_total,
+            'percentage': round(etapa_percentage, 2)
+        })
+
+        for macro_name in sorted(etapa_data[etapa_name].keys(), key=sort_key):
+            macro_info = etapa_data[etapa_name][macro_name]
+            macro_total = macro_info['total']
+            macro_percentage = (macro_total / total_all * 100) if total_all else 0.0
+            items.append({
+                'type': 'macro',
+                'etapa_name': etapa_name,
+                'macro_name': macro_name,
+                'micro_name': '',
+                'total': macro_total,
+                'percentage': round(macro_percentage, 2)
+            })
+
+            for micro_name in sorted(macro_info['micros'].keys(), key=sort_key):
+                micro_count = macro_info['micros'][micro_name]
+                micro_percentage = (micro_count / total_all * 100) if total_all else 0.0
+                items.append({
+                    'type': 'micro',
+                    'etapa_name': etapa_name,
+                    'macro_name': macro_name,
+                    'micro_name': micro_name,
+                    'total': micro_count,
+                    'percentage': round(micro_percentage, 2)
+                })
+
+    return {
+        'items': items,
+        'total_all': total_all
+    }
+
 @reports_bp.route('/regularizacao/sp', methods=['GET'])
 @login_required
 def get_regularizacao_sp():
@@ -234,6 +350,24 @@ def get_regularizacao_rj():
         header=2  # Linha 3 (0-indexed = 2)
     )
     processed = _build_regularizacao_rj_macro_microprocess(sheet_data)
+    return jsonify(processed), 200
+
+@reports_bp.route('/regularizacao/cteep', methods=['GET'])
+@login_required
+def get_regularizacao_cteep():
+    """Retorna dados de Regularização CTEEP (Etapas, Macroprocesso e Microprocesso)"""
+    spreadsheet_name = 'CTEEP ATUALIZADA - BASE MR 2025'
+    sheet_name = request.args.get('sheet_name', None)
+    file_path_obj = _find_enel_spreadsheet_file(spreadsheet_name)
+    if not file_path_obj:
+        return jsonify({'error': f'Planilha não encontrada: {spreadsheet_name}'}), 404
+
+    sheet_data = read_spreadsheet_file(
+        file_path=str(file_path_obj),
+        sheet_name=sheet_name,
+        header=0
+    )
+    processed = _build_regularizacao_cteep_etapa_macro_microprocess(sheet_data)
     return jsonify(processed), 200
 
 @reports_bp.route('/clients', methods=['GET'])
@@ -373,6 +507,7 @@ def generate_pdf(client_id):
     legalizacao_rj_bombeiro_comments = []
     regularizacao_sp_comments = []
     regularizacao_rj_comments = []
+    regularizacao_cteep_comments = []
     for comment in comments:
         if isinstance(comment, dict):
             page = comment.get('page', '')
@@ -394,6 +529,8 @@ def generate_pdf(client_id):
                 regularizacao_sp_comments.append(comment)
             elif page == 'Regularização - RJ':
                 regularizacao_rj_comments.append(comment)
+            elif page == 'Regularização - CTEEP':
+                regularizacao_cteep_comments.append(comment)
             elif not page or page == 'Visão Geral - Alvarás de Funcionamento':
                 alvaras_comments.append(comment)
         else:
@@ -989,6 +1126,44 @@ def generate_pdf(client_id):
                 logger.warning("Planilha Registral e Notarial - Regularização RJ não encontrada")
         except Exception as e:
             logger.error(f"Erro ao buscar dados de Regularização RJ: {e}", exc_info=True)
+
+    # Buscar dados de Regularização CTEEP se CTEEP estiver na lista
+    regularizacao_cteep_data = None
+    if 'CTEEP' in regularizacao_lista:
+        try:
+            file_path_obj = _find_enel_spreadsheet_file('CTEEP ATUALIZADA - BASE MR 2025')
+            if file_path_obj:
+                sheet_data = read_spreadsheet_file(
+                    file_path=str(file_path_obj),
+                    sheet_name=None,
+                    header=0
+                )
+                regularizacao_cteep_data_dict = _build_regularizacao_cteep_etapa_macro_microprocess(sheet_data)
+                from types import SimpleNamespace
+                items_list = []
+                max_total = 0
+                for item_dict in regularizacao_cteep_data_dict.get('items', []):
+                    if item_dict.get('type') == 'macro':
+                        item_total = item_dict.get('total', 0)
+                        if item_total > max_total:
+                            max_total = item_total
+                    items_list.append(SimpleNamespace(
+                        type=item_dict.get('type', ''),
+                        etapa_name=item_dict.get('etapa_name', ''),
+                        macro_name=item_dict.get('macro_name', ''),
+                        micro_name=item_dict.get('micro_name', ''),
+                        total=item_dict.get('total', 0),
+                        percentage=item_dict.get('percentage', 0.0)
+                    ))
+                regularizacao_cteep_data = SimpleNamespace(
+                    items=items_list,
+                    total_all=regularizacao_cteep_data_dict.get('total_all', 0),
+                    max_total=max_total
+                )
+            else:
+                logger.warning("Planilha CTEEP ATUALIZADA - BASE MR 2025 não encontrada")
+        except Exception as e:
+            logger.error(f"Erro ao buscar dados de Regularização CTEEP: {e}", exc_info=True)
     
     # Renderizar template HTML
     # #region agent log
@@ -1030,6 +1205,7 @@ def generate_pdf(client_id):
             regularizacao_lista=regularizacao_lista,
             regularizacao_sp_data=regularizacao_sp_data,
             regularizacao_rj_data=regularizacao_rj_data,
+            regularizacao_cteep_data=regularizacao_cteep_data,
             licenca_sanitaria_data=licenca_sanitaria_data,
             anuencia_ambiental_data=anuencia_ambiental_data,
             certificado_bombeiro_data=certificado_bombeiro_data,
@@ -1045,9 +1221,10 @@ def generate_pdf(client_id):
             legalizacao_rj_bombeiro_comments=legalizacao_rj_bombeiro_comments,
             regularizacao_sp_comments=regularizacao_sp_comments,
             regularizacao_rj_comments=regularizacao_rj_comments,
+            regularizacao_cteep_comments=regularizacao_cteep_comments,
             mr_logo_path=mr_logo_base64,
             client_logo_path=client_logo_base64
-        )
+    )
         # #region agent log
         try:
             with open('.cursor/debug.log', 'a', encoding='utf-8') as f:

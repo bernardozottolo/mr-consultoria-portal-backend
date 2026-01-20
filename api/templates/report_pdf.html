@@ -1315,6 +1315,117 @@
         {% endif %}
     </div>
     {% endif %}
+
+    <!-- Página: Regularização - CTEEP -->
+    {% if regularizacao_cteep_data and 'CTEEP' in regularizacao_lista %}
+    <div class="visao-geral-page">
+        <div class="header-logos">
+            <img src="{{ mr_logo_path }}" alt="MR Consultoria">
+            <img src="{{ client_logo_path }}" alt="{{ client_name }}">
+        </div>
+        <h1 class="visao-geral-title">Regularização - CTEEP</h1>
+
+        <div class="regularizacao-sp-container">
+            <!-- Tabela no lado esquerdo -->
+            <div class="regularizacao-sp-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Etapa</th>
+                            <th>Macroprocesso</th>
+                            <th>Microprocesso</th>
+                            <th>Total</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if regularizacao_cteep_data and regularizacao_cteep_data.items %}
+                        {% for item in regularizacao_cteep_data.items %}
+                        <tr {% if item.type == 'etapa' %}style="background-color: #f3f3f3; font-weight: bold;"{% elif item.type == 'macro' %}style="background-color: #f0f0f0; font-weight: bold;"{% endif %}>
+                            <td style="text-align: left; padding: {% if item.type == 'etapa' %}12px{% else %}10px{% endif %}; border: 1px solid #ddd;">
+                                {% if item.type == 'etapa' %}
+                                    {{ item.etapa_name }}
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
+                            </td>
+                            <td style="text-align: left; padding: 10px; border: 1px solid #ddd;">
+                                {% if item.type == 'macro' %}
+                                    {{ item.macro_name }}
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
+                            </td>
+                            <td style="text-align: left; padding: 10px; border: 1px solid #ddd; {% if item.type == 'micro' %}padding-left: 30px;{% endif %}">
+                                {% if item.type == 'micro' %}
+                                    {{ item.micro_name }}
+                                {% else %}
+                                    &nbsp;
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd; {% if item.type in ['etapa', 'macro'] %}font-weight: bold;{% endif %}">
+                                {{ item.total }}
+                            </td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd; {% if item.type in ['etapa', 'macro'] %}font-weight: bold;{% endif %}">
+                                {{ "%.1f"|format(item.percentage) }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                        <tr style="background-color: #d0e8f0; font-weight: bold;">
+                            <td colspan="3" style="text-align: left; padding: 10px; border: 1px solid #ddd;">Total Geral</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">{{ regularizacao_cteep_data.total_all }}</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">100%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Gráfico de barras no lado direito -->
+            <div class="regularizacao-sp-chart-container">
+                <div class="regularizacao-sp-chart">
+                    {% if regularizacao_cteep_data and regularizacao_cteep_data.items %}
+                    {% set max_total = regularizacao_cteep_data.max_total if regularizacao_cteep_data.max_total else 1 %}
+                    {% for item in regularizacao_cteep_data.items %}
+                    {% if item.type == 'macro' %}
+                    {% set bar_height = (item.total / max_total * 100) if max_total > 0 else 0 %}
+                    <div class="regularizacao-sp-bar">
+                        <div class="regularizacao-sp-bar-container">
+                            <div class="regularizacao-sp-bar-value">{{ item.total }}</div>
+                            <div class="regularizacao-sp-bar-fill" style="height: {{ bar_height }}%;">
+                            </div>
+                        </div>
+                        <div class="regularizacao-sp-bar-label">{{ item.macro_name }}</div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if regularizacao_cteep_comments %}
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+            <h2 class="comments-title" style="margin-top: 15px; margin-bottom: 0;">Comentários</h2>
+            <div class="comments-content">
+                <ul>
+                    {% for comment in regularizacao_cteep_comments %}
+                    <li>
+                        {% if comment is string %}
+                            {{ comment }}
+                        {% elif comment.title %}
+                            <strong>{{ comment.title }}:</strong> {{ comment.text }}
+                        {% else %}
+                            {{ comment.text }}
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 </body>
 </html>
 
