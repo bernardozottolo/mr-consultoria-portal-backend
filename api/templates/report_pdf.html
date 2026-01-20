@@ -370,7 +370,7 @@
                     
                     <!-- Concluídos -->
                     <tr class="row-main">
-                        <td><strong>Concluídos</strong></td>
+                        <td><strong>CA emitidos</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
                         <td>{{ legalizacao_ce_data.concluidos.years.get(year_key, 0) }}</td>
@@ -381,7 +381,7 @@
                     
                     <!-- Alvarás em Andamento - Total -->
                     <tr class="row-main">
-                        <td><strong>Alvarás em Andamento</strong></td>
+                        <td><strong>Acionamentos de Bombeiro em Andamento</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
                         <td>{{ legalizacao_ce_data.em_andamento.total.years.get(year_key, 0) }}</td>
@@ -1214,6 +1214,11 @@
                         <tr style="background-color: #d0e8f0; font-weight: bold;">
                             <td colspan="2" style="text-align: left; padding: 10px; border: 1px solid #ddd;">Total Geral</td>
                             <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">{{ regularizacao_rj_data.total_all }}</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">100%</td>
+                        </tr>
+                        <tr style="background-color: #d0e8f0; font-weight: bold;">
+                            <td style="text-align: left; padding: 10px; border: 1px solid #ddd;">Total Geral</td>
+                            <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">{{ regularizacao_sp_data.total_all }}</td>
                             <td style="text-align: center; padding: 10px; border: 1px solid #ddd;">100%</td>
                         </tr>
                     </tbody>
