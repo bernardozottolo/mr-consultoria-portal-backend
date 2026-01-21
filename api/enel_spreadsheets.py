@@ -824,12 +824,7 @@ def _get_enel_spreadsheet_data_internal(
         cancelado_statuses=cancelado_statuses,
         status_exclude=status_exclude
     )
-
-    nao_iniciado_param = request.args.get('nao_iniciado_statuses', '')
-    if nao_iniciado_param:
-        nao_iniciado_statuses = [s.strip() for s in nao_iniciado_param.split(',') if s.strip()]
-        processed_data = _apply_nao_iniciado_statuses(processed_data, nao_iniciado_statuses, years)
-
+    
     return jsonify(processed_data), 200
 
 
@@ -1175,70 +1170,3 @@ def process_enel_legalizacao_data(
         },
         'years': years
     }
-
-
-def _apply_nao_iniciado_statuses(processed_data: dict, nao_iniciado_statuses: list, years: list) -> dict:
-    """Move subcategorias específicas de 'em_andamento' para 'nao_iniciado'."""
-    if not processed_data or not nao_iniciado_statuses:
-        return processed_data
-
-    em_andamento = processed_data.get('em_andamento', {})
-    total_info = em_andamento.get('total', {})
-    subcats = em_andamento.get('subcategorias', [])
-
-    if not subcats:
-        processed_data['nao_iniciado'] = {
-            'total': 0,
-            'years': {y: 0 for y in years},
-            'percentage': 0.0,
-            'subcategorias': []
-        }
-        return processed_data
-
-    nao_iniciado_norm = {s.strip().lower() for s in nao_iniciado_statuses}
-    nao_iniciado_subcats = []
-    remaining_subcats = []
-    nao_iniciado_years = {y: 0 for y in years}
-    nao_iniciado_total = 0
-
-    for subcat in subcats:
-        subcat_name = str(subcat.get('name', '')).strip()
-        if subcat_name.lower() in nao_iniciado_norm:
-            nao_iniciado_subcats.append(subcat)
-            nao_iniciado_total += subcat.get('total', 0)
-            for year in years:
-                nao_iniciado_years[year] += subcat.get('years', {}).get(year, 0)
-        else:
-            remaining_subcats.append(subcat)
-
-    total_demandado_total = processed_data.get('total_demandado', {}).get('total', 0)
-    if nao_iniciado_total > 0:
-        em_years = total_info.get('years', {})
-        for year in years:
-            em_years[year] = em_years.get(year, 0) - nao_iniciado_years.get(year, 0)
-        total_info['years'] = em_years
-        total_info['total'] = max(total_info.get('total', 0) - nao_iniciado_total, 0)
-        total_info['percentage'] = round((total_info.get('total', 0) / total_demandado_total) * 100, 1) if total_demandado_total else 0.0
-
-        em_andamento['total'] = total_info
-        em_andamento['subcategorias'] = remaining_subcats
-
-        for subcat in remaining_subcats:
-            subcat['percentage'] = round((subcat.get('total', 0) / total_demandado_total) * 100, 1) if total_demandado_total else 0.0
-
-    processed_data['nao_iniciado'] = {
-        'total': nao_iniciado_total,
-        'years': nao_iniciado_years,
-        'percentage': round((nao_iniciado_total / total_demandado_total) * 100, 1) if total_demandado_total else 0.0,
-        'subcategorias': [
-            {
-                'name': subcat.get('name', ''),
-                'years': subcat.get('years', {}),
-                'total': subcat.get('total', 0),
-                'percentage': round((subcat.get('total', 0) / total_demandado_total) * 100, 1) if total_demandado_total else 0.0
-            }
-            for subcat in nao_iniciado_subcats
-        ]
-    }
-
-    return processed_data
