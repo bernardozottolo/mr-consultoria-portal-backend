@@ -50,6 +50,14 @@
             text-align: center;
             font-size: 3.0em;
         }
+
+        .report-subtitle {
+            color: #2f84a8;
+            margin: 12px 0 0;
+            padding: 0;
+            text-align: center;
+            font-size: 1.4em;
+        }
         
         .legalizacoes-page {
             page-break-before: always;
@@ -303,6 +311,9 @@
         <h1 class="report-title">
             Relatório Enel de {{ month_name }} {{ year }}
         </h1>
+        <div class="report-subtitle">
+            Data de corte {{ data_corte }}
+        </div>
     </div>
     
     <!-- Segunda página: Legalizações -->

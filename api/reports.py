@@ -1290,11 +1290,13 @@ def generate_pdf(client_id):
     # #endregion
     
     try:
+        data_corte = datetime.now().strftime('%d/%m')
         html_content = render_template(
             'report_pdf.html',
             client_name=client_dict['nome'],
             month_name=month_name,
             year=ano,
+            data_corte=data_corte,
             estados=estados_str,
             estados_lista=estados_lista,
             legalizacao_lista=legalizacao_lista,
