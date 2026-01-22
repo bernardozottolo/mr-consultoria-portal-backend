@@ -674,7 +674,7 @@
                     </tr>
                     
                     <!-- Concluídos -->
-                    <tr class="row-total">
+                    <tr class="row-main">
                         <td><strong>Concluídos</strong></td>
                         {% for year in years %}
                         {% set year_key = year %}
@@ -685,7 +685,7 @@
                     </tr>
                     
                     <!-- Em Andamento - Total -->
-                    <tr class="row-total">
+                    <tr class="row-main">
                         <td><strong>Em Andamento - Total</strong></td>
                         {% for year in years %}
                         {% set year_key = year %}
@@ -782,7 +782,7 @@
                         <td><strong>{{ "%.1f"|format(legalizacao_sp_data.total_demandado.percentage) }}%</strong></td>
                     </tr>
                     
-                    <tr class="row-total">
+                    <tr class="row-main">
                         <td><strong>Concluídos</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
@@ -864,7 +864,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="row-main">
+                    <tr class="row-total">
                         <td><strong>Total Demandado</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
@@ -969,7 +969,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="row-main">
+                    <tr class="row-total">
                         <td><strong>Total Demandado</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
@@ -1071,7 +1071,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr class="row-main">
+                    <tr class="row-total">
                         <td><strong>Total Demandado</strong></td>
                         {% for year in years %}
                         {% set year_key = year|int %}
